@@ -2,7 +2,7 @@ import { IsEmail, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class CreateUserDto {
   @IsString()
-  firebaseUid: string;
+  googleId: string;
 
   @IsEmail()
   email: string;

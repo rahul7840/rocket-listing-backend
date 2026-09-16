@@ -28,11 +28,13 @@ const MAX_UPLOAD_SIZE_BYTES =
 @Controller('image-variants')
 @ApiTags('image-variants')
 export class ImageVariantsController {
-  constructor(private readonly imageVariantsService: ImageVariantsService) { }
+  constructor(private readonly imageVariantsService: ImageVariantsService) {}
 
   @Post()
   @UseInterceptors(FileInterceptor('image', { storage: memoryStorage() }))
-  @ApiOperation({ summary: 'Generate resized/cropped variants of an uploaded image' })
+  @ApiOperation({
+    summary: 'Generate resized/cropped variants of an uploaded image',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {

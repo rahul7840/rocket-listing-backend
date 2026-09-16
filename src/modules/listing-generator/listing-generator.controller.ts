@@ -13,7 +13,8 @@ export class ListingGeneratorController {
 
   @Post('generate')
   @ApiOperation({
-    summary: 'Generate listing fields (product name, description, SKUs) from a recording',
+    summary:
+      'Generate listing fields (product name, description, SKUs) from a recording',
   })
   @ApiResponse({ status: 201, type: ListingFieldsResponse })
   generate(@Body() dto: GenerateListingDto): Promise<ListingFieldsResponse> {

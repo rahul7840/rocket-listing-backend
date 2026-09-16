@@ -11,32 +11,38 @@ export class RecordingsService {
     private readonly recordingModel: typeof Recording,
   ) {}
 
-  findAll(userId?: string): Promise<Recording[]> {
+  findAll(userId: string): Promise<Recording[]> {
     return this.recordingModel.findAll({
-      where: userId ? { userId } : undefined,
+      where: { userId },
       order: [['updatedAt', 'DESC']],
     });
   }
 
-  async findOne(id: string): Promise<Recording> {
-    const recording = await this.recordingModel.findByPk(id);
+  async findOne(id: string, userId: string): Promise<Recording> {
+    const recording = await this.recordingModel.findOne({
+      where: { id, userId },
+    });
     if (!recording) {
       throw new NotFoundException(`Recording ${id} not found`);
     }
     return recording;
   }
 
-  create(dto: CreateRecordingDto): Promise<Recording> {
-    return this.recordingModel.create({ ...dto });
+  create(userId: string, dto: CreateRecordingDto): Promise<Recording> {
+    return this.recordingModel.create({ ...dto, userId });
   }
 
-  async update(id: string, dto: UpdateRecordingDto): Promise<Recording> {
-    const recording = await this.findOne(id);
+  async update(
+    id: string,
+    userId: string,
+    dto: UpdateRecordingDto,
+  ): Promise<Recording> {
+    const recording = await this.findOne(id, userId);
     return recording.update({ ...dto });
   }
 
-  async remove(id: string): Promise<void> {
-    const recording = await this.findOne(id);
+  async remove(id: string, userId: string): Promise<void> {
+    const recording = await this.findOne(id, userId);
     await recording.destroy();
   }
 }

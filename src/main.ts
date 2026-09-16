@@ -34,7 +34,6 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Reacoder API')
     .setDescription('API documentation for the Reacoder backend')
@@ -45,7 +44,6 @@ async function bootstrap() {
 
   const port = configService.get<number>('port') ?? 3000;
   await app.listen(port);
-  console.log('server is running....   http://localhost:3000/api')
-
+  console.log('server is running....   http://localhost:3000/api');
 }
 bootstrap();

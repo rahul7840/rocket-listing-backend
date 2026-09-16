@@ -11,7 +11,7 @@ export class User extends Model {
   id: string;
 
   @Column({ type: DataType.STRING, unique: true, allowNull: false })
-  firebaseUid: string;
+  googleId: string;
 
   @Column({ type: DataType.STRING, unique: true, allowNull: false })
   email: string;
@@ -21,6 +21,12 @@ export class User extends Model {
 
   @Column({ type: DataType.STRING, allowNull: true })
   photoUrl: string | null;
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  lastLoginAt: Date | null;
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  isActive: boolean;
 
   @HasMany(() => Recording)
   recordings: Recording[];

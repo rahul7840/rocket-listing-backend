@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RecordingsModule } from './modules/recordings/recordings.module';
 import { ListingGeneratorModule } from './modules/listing-generator/listing-generator.module';
@@ -16,6 +17,7 @@ import { ImageProcessingModule } from './modules/image-processing/image-processi
       load: [configuration],
     }),
     DatabaseModule,
+    AuthModule,
     UsersModule,
     RecordingsModule,
     ListingGeneratorModule,

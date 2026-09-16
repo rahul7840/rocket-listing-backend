@@ -14,6 +14,14 @@ export interface AppConfig {
     publicPath: string;
     maxUploadSizeMb: number;
   };
+  googleAuth: {
+    /** OAuth client IDs the extension is allowed to mint access tokens for (local dev + published store build). */
+    clientIds: string[];
+  };
+  jwt: {
+    secret: string;
+    expiresIn: string;
+  };
 }
 
 export default (): AppConfig => ({
@@ -33,5 +41,18 @@ export default (): AppConfig => ({
     // Path prefix the files are served under (see main.ts useStaticAssets).
     publicPath: process.env.IMAGE_PUBLIC_PATH ?? '/uploads',
     maxUploadSizeMb: parseInt(process.env.IMAGE_MAX_UPLOAD_MB ?? '15', 10),
+  },
+  googleAuth: {
+    // Comma-separated - one per "Chrome Extension" OAuth client (local dev
+    // build id + Chrome Web Store build id). A token whose audience isn't in
+    // this list is rejected, so it can't have been minted for another app.
+    clientIds: (process.env.GOOGLE_OAUTH_CLIENT_IDS ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean),
+  },
+  jwt: {
+    secret: process.env.JWT_SECRET ?? '',
+    expiresIn: process.env.JWT_EXPIRES_IN ?? '30d',
   },
 });

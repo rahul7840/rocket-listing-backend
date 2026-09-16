@@ -1,17 +1,7 @@
-import {
-  IsArray,
-  IsEnum,
-  IsOptional,
-  IsString,
-  IsUrl,
-  IsUUID,
-} from 'class-validator';
+import { IsArray, IsEnum, IsOptional, IsString, IsUrl } from 'class-validator';
 import { RecordingStatus } from '../models/recording.model';
 
 export class CreateRecordingDto {
-  @IsUUID()
-  userId: string;
-
   @IsString()
   name: string;
 
