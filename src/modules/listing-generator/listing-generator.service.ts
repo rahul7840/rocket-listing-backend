@@ -57,9 +57,14 @@ export class ListingGeneratorService {
     lines.push(
       '',
       'Rules:',
-      '- productName: a concise, realistic marketplace product title (max ~80 characters).',
+      '- productName: a concise, realistic marketplace product title (max ~80 characters). Decide this first - every other field below must stay consistent with it.',
       '- description: 2-4 sentences, factual-sounding and appealing, consistent with productName. No fabricated brand names, certifications, or claims not implied by the context.',
-      `- variants: return exactly ${dto.variants.length} entr${dto.variants.length === 1 ? 'y' : 'ies'}, in the same order as listed below. Each "sku" must be unique across the list, uppercase alphanumeric with optional hyphens, 6-20 characters, and should reflect that variant's label when one is given.`,
+      `- variants: return exactly ${dto.variants.length} entr${dto.variants.length === 1 ? 'y' : 'ies'}, in the same order as listed below, one per SKU field - however many are listed.`,
+      '  Each "sku" must be:',
+      '  - derived from the productName you chose (e.g. an abbreviation or the first few consonants/words of it), not a random code unrelated to the product,',
+      "  - suffixed with that variant's label when one is given, so sibling variants are visibly related to each other and to the product,",
+      '  - unique across the whole list - no two entries may match, even when two variants share the same label,',
+      '  - uppercase alphanumeric with optional hyphens, 6-20 characters.',
       '',
       'Variants (in order):',
     );
@@ -112,12 +117,18 @@ export class ListingGeneratorService {
     return { productName, description, variants: normalizedVariants };
   }
 
+  /** Used when Gemini's SKU for a variant is missing, or a duplicate had to be renamed - still tied to the product so it doesn't look like a stray code. */
   private fallbackSku(dto: GenerateListingDto, index: number): string {
-    const seed =
-      dto.variants[index]?.label
-        ?.replace(/[^A-Z0-9]/gi, '')
-        .slice(0, 6)
-        .toUpperCase() || 'SKU';
-    return `${seed}-${Date.now().toString(36).toUpperCase()}-${index}`;
+    const nameSeed = (dto.productName ?? '')
+      .replace(/[^A-Z0-9]/gi, '')
+      .slice(0, 6)
+      .toUpperCase();
+    const labelSeed = dto.variants[index]?.label
+      ?.replace(/[^A-Z0-9]/gi, '')
+      .slice(0, 6)
+      .toUpperCase();
+    const seed = nameSeed || labelSeed || 'SKU';
+    const suffix = labelSeed && labelSeed !== nameSeed ? `-${labelSeed}` : '';
+    return `${seed}${suffix}-${Date.now().toString(36).toUpperCase()}-${index}`;
   }
 }
