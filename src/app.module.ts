@@ -7,6 +7,7 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RecordingsModule } from './modules/recordings/recordings.module';
+import { TemplatesModule } from './modules/templates/templates.module';
 import { ListingGeneratorModule } from './modules/listing-generator/listing-generator.module';
 import { ImageProcessingModule } from './modules/image-processing/image-processing.module';
 
@@ -20,6 +21,7 @@ import { ImageProcessingModule } from './modules/image-processing/image-processi
     AuthModule,
     UsersModule,
     RecordingsModule,
+    TemplatesModule,
     ListingGeneratorModule,
     ImageProcessingModule,
   ],

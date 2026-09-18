@@ -21,7 +21,7 @@ export class Recording extends Model {
     defaultValue: DataType.UUIDV4,
     primaryKey: true,
   })
-  id: string;
+  recordingId: string;
 
   @ForeignKey(() => User)
   @Column({ type: DataType.UUID, allowNull: false })

@@ -24,17 +24,17 @@ export class RecordingsController {
 
   @Post()
   create(@Body() dto: CreateRecordingDto, @CurrentUser() user: User) {
-    return this.recordingsService.create(user.id, dto);
+    return this.recordingsService.create(user.userId, dto);
   }
 
   @Get()
   findAll(@CurrentUser() user: User) {
-    return this.recordingsService.findAll(user.id);
+    return this.recordingsService.findAll(user.userId);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.recordingsService.findOne(id, user.id);
+    return this.recordingsService.findOne(id, user.userId);
   }
 
   @Patch(':id')
@@ -43,11 +43,11 @@ export class RecordingsController {
     @Body() dto: UpdateRecordingDto,
     @CurrentUser() user: User,
   ) {
-    return this.recordingsService.update(id, user.id, dto);
+    return this.recordingsService.update(id, user.userId, dto);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.recordingsService.remove(id, user.id);
+    return this.recordingsService.remove(id, user.userId);
   }
 }

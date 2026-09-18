@@ -20,7 +20,7 @@ export class RecordingsService {
 
   async findOne(id: string, userId: string): Promise<Recording> {
     const recording = await this.recordingModel.findOne({
-      where: { id, userId },
+      where: { recordingId: id, userId },
     });
     if (!recording) {
       throw new NotFoundException(`Recording ${id} not found`);

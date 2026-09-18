@@ -16,6 +16,10 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService<AppConfig>);
 
+  // Trust the first proxy hop so req.ip reflects X-Forwarded-For when deployed
+  // behind a reverse proxy/load balancer instead of the proxy's own address.
+  app.set('trust proxy', 1);
+
   app.enableCors({ origin: true });
 
   const { uploadDir, publicPath } = configService.getOrThrow(

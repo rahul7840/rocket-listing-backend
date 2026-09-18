@@ -1,5 +1,6 @@
 import { Column, DataType, HasMany, Model, Table } from 'sequelize-typescript';
 import { Recording } from '../../recordings/models/recording.model';
+import { Template } from '../../templates/models/template.model';
 
 @Table({ tableName: 'users', timestamps: true })
 export class User extends Model {
@@ -8,7 +9,7 @@ export class User extends Model {
     defaultValue: DataType.UUIDV4,
     primaryKey: true,
   })
-  id: string;
+  userId: string;
 
   @Column({ type: DataType.STRING, unique: true, allowNull: false })
   googleId: string;
@@ -30,4 +31,7 @@ export class User extends Model {
 
   @HasMany(() => Recording)
   recordings: Recording[];
+
+  @HasMany(() => Template)
+  templates: Template[];
 }

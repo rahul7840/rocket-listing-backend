@@ -49,7 +49,7 @@ export class UsersController {
   }
 
   private assertSelf(id: string, user: User): void {
-    if (id !== user.id) {
+    if (id !== user.userId) {
       throw new ForbiddenException('You may only access your own account');
     }
   }
