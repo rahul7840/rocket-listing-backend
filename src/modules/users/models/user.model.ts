@@ -1,6 +1,7 @@
 import { Column, DataType, HasMany, Model, Table } from 'sequelize-typescript';
 import { Recording } from '../../recordings/models/recording.model';
 import { Template } from '../../templates/models/template.model';
+import { UserSubscription } from '../../subscriptions/models/user-subscription.model';
 
 @Table({ tableName: 'users', timestamps: true })
 export class User extends Model {
@@ -34,4 +35,7 @@ export class User extends Model {
 
   @HasMany(() => Template)
   templates: Template[];
+
+  @HasMany(() => UserSubscription)
+  subscriptions: UserSubscription[];
 }

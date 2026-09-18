@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '../users/models/user.model';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { GoogleProfile } from './services/google-auth.service';
 
 export interface JwtPayload {
@@ -14,6 +15,7 @@ export class AuthService {
     @InjectModel(User)
     private readonly userModel: typeof User,
     private readonly jwtService: JwtService,
+    private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
   /** Cheap lookup used by JwtAuthGuard on every request. */
@@ -27,10 +29,14 @@ export class AuthService {
 
   /** Sign-up/login: upserts the row and refreshes profile fields + lastLoginAt. */
   async findOrCreateAndSync(profile: GoogleProfile): Promise<User> {
-    const [user] = await this.userModel.findOrCreate({
+    const [user, created] = await this.userModel.findOrCreate({
       where: { googleId: profile.googleId },
       defaults: { ...profile, lastLoginAt: new Date() },
     });
+
+    if (created) {
+      await this.subscriptionsService.assignFreePlanIfMissing(user.userId);
+    }
 
     return user.update({
       email: profile.email,

@@ -14,6 +14,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ClientIp } from '../auth/decorators/client-ip.decorator';
 import { User } from '../users/models/user.model';
+import { RequiresLimit } from '../subscriptions/decorators/requires-limit.decorator';
+import { RequiresFeature } from '../subscriptions/decorators/requires-feature.decorator';
+import { TemplateCountResolver } from './resolvers/template-count.resolver';
 
 @Controller('templates')
 @ApiTags('templates')
@@ -22,6 +25,7 @@ export class TemplatesController {
   constructor(private readonly templatesService: TemplatesService) {}
 
   @Post()
+  @RequiresLimit('template.create', TemplateCountResolver)
   create(
     @Body() dto: CreateTemplateDto,
     @CurrentUser() user: User,
@@ -36,6 +40,7 @@ export class TemplatesController {
   }
 
   @Delete(':clientId')
+  @RequiresFeature('template.delete')
   remove(@Param('clientId') clientId: string, @CurrentUser() user: User) {
     return this.templatesService.remove(clientId, user.userId);
   }

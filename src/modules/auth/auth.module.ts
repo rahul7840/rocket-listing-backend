@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { AppConfig } from '../../config/configuration';
 import { User } from '../users/models/user.model';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { GoogleAuthService } from './services/google-auth.service';
@@ -34,7 +35,7 @@ const jwtModule = JwtModule.registerAsync({
 });
 
 @Module({
-  imports: [SequelizeModule.forFeature([User]), jwtModule],
+  imports: [SequelizeModule.forFeature([User]), jwtModule, SubscriptionsModule],
   controllers: [AuthController],
   providers: [GoogleAuthService, AuthService, JwtAuthGuard],
   // Re-export jwtModule too - JwtAuthGuard is instantiated in whichever

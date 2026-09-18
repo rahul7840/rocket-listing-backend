@@ -10,6 +10,9 @@ import { RecordingsModule } from './modules/recordings/recordings.module';
 import { TemplatesModule } from './modules/templates/templates.module';
 import { ListingGeneratorModule } from './modules/listing-generator/listing-generator.module';
 import { ImageProcessingModule } from './modules/image-processing/image-processing.module';
+import { PlansModule } from './modules/plans/plans.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { UsageModule } from './modules/usage/usage.module';
 
 @Module({
   imports: [
@@ -24,6 +27,9 @@ import { ImageProcessingModule } from './modules/image-processing/image-processi
     TemplatesModule,
     ListingGeneratorModule,
     ImageProcessingModule,
+    PlansModule,
+    SubscriptionsModule,
+    UsageModule,
   ],
   controllers: [AppController],
   providers: [AppService],
