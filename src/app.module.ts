@@ -13,6 +13,7 @@ import { ImageProcessingModule } from './modules/image-processing/image-processi
 import { PlansModule } from './modules/plans/plans.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { UsageModule } from './modules/usage/usage.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { UsageModule } from './modules/usage/usage.module';
     PlansModule,
     SubscriptionsModule,
     UsageModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

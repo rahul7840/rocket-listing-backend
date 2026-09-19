@@ -22,6 +22,12 @@ export interface AppConfig {
     secret: string;
     expiresIn: string;
   };
+  admin: {
+    jwtSecret: string;
+    jwtExpiresIn: string;
+    seedEmail: string;
+    seedPassword: string;
+  };
 }
 
 export default (): AppConfig => ({
@@ -54,5 +60,15 @@ export default (): AppConfig => ({
   jwt: {
     secret: process.env.JWT_SECRET ?? '',
     expiresIn: process.env.JWT_EXPIRES_IN ?? '30d',
+  },
+  admin: {
+    // Separate secret from the regular user JWT - admin tokens must not be
+    // verifiable with the user secret or vice versa. Generate one with:
+    //   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+    jwtSecret: process.env.ADMIN_JWT_SECRET ?? '',
+    jwtExpiresIn: process.env.ADMIN_JWT_EXPIRES_IN ?? '12h',
+    // Seeded admin account (src/database/seeders) - bcrypt-hashed on insert.
+    seedEmail: process.env.ADMIN_SEED_EMAIL ?? '',
+    seedPassword: process.env.ADMIN_SEED_PASSWORD ?? '',
   },
 });
