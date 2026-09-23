@@ -4,6 +4,7 @@
 import 'dotenv/config';
 
 import { join } from 'path';
+import * as compression from 'compression';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -19,6 +20,8 @@ async function bootstrap() {
   // Trust the first proxy hop so req.ip reflects X-Forwarded-For when deployed
   // behind a reverse proxy/load balancer instead of the proxy's own address.
   app.set('trust proxy', 1);
+
+  app.use(compression());
 
   app.enableCors({ origin: true });
 
