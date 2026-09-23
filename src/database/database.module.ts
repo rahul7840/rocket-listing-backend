@@ -20,6 +20,9 @@ import { AppConfig } from '../config/configuration';
           logging: db.logging,
           autoLoadModels: true,
           synchronize: false,
+          dialectOptions: db.ssl
+            ? { ssl: { require: true, rejectUnauthorized: false } }
+            : undefined,
         };
       },
     }),

@@ -14,6 +14,7 @@ import { PlansModule } from './modules/plans/plans.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { UsageModule } from './modules/usage/usage.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { MeeshoPaymentsModule } from './modules/meesho-payments/meesho-payments.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { AdminModule } from './modules/admin/admin.module';
     SubscriptionsModule,
     UsageModule,
     AdminModule,
+    MeeshoPaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

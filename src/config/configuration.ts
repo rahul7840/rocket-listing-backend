@@ -8,6 +8,7 @@ export interface AppConfig {
     password: string;
     name: string;
     logging: boolean;
+    ssl: boolean;
   };
   imageProcessing: {
     uploadDir: string;
@@ -40,6 +41,7 @@ export default (): AppConfig => ({
     password: process.env.DB_PASSWORD ?? '',
     name: process.env.DB_NAME ?? 'rocket listing',
     logging: process.env.DB_LOGGING === 'true',
+    ssl: process.env.DB_SSL === 'true',
   },
   imageProcessing: {
     // Relative to the project root - where generated variant files are written on disk.
