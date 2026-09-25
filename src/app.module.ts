@@ -12,9 +12,11 @@ import { ListingGeneratorModule } from './modules/listing-generator/listing-gene
 import { ImageProcessingModule } from './modules/image-processing/image-processing.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { SubscriptionsHttpModule } from './modules/subscriptions/subscriptions-http.module';
 import { UsageModule } from './modules/usage/usage.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { MeeshoPaymentsModule } from './modules/meesho-payments/meesho-payments.module';
+import { ProductCostsModule } from './modules/product-costs/product-costs.module';
 
 @Module({
   imports: [
@@ -31,9 +33,11 @@ import { MeeshoPaymentsModule } from './modules/meesho-payments/meesho-payments.
     ImageProcessingModule,
     PlansModule,
     SubscriptionsModule,
+    SubscriptionsHttpModule,
     UsageModule,
     AdminModule,
     MeeshoPaymentsModule,
+    ProductCostsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

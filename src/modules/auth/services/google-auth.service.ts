@@ -29,11 +29,15 @@ interface GoogleUserInfo {
 export class GoogleAuthService {
   private readonly oauth2Client = new OAuth2Client();
   private readonly allowedClientIds: string[];
+  private readonly allowedWebClientIds: string[];
 
   constructor(private readonly configService: ConfigService) {
-    this.allowedClientIds = this.configService.getOrThrow<
-      AppConfig['googleAuth']
-    >('googleAuth', { infer: true }).clientIds;
+    const googleAuth = this.configService.getOrThrow<AppConfig['googleAuth']>(
+      'googleAuth',
+      { infer: true },
+    );
+    this.allowedClientIds = googleAuth.clientIds;
+    this.allowedWebClientIds = googleAuth.webClientIds;
   }
 
   async verifyAccessToken(accessToken: string): Promise<GoogleProfile> {
@@ -61,6 +65,36 @@ export class GoogleAuthService {
       email: userInfo.email,
       displayName: userInfo.name ?? null,
       photoUrl: userInfo.picture ?? null,
+    };
+  }
+
+  /**
+   * Verifies the Google ID token issued to the website's Sign in with Google
+   * button (Google Identity Services). Separate from verifyAccessToken above:
+   * a web client gets an ID token, not an access token, and it's verified
+   * locally (signature + audience) rather than via a tokeninfo round-trip.
+   */
+  async verifyIdToken(idToken: string): Promise<GoogleProfile> {
+    if (this.allowedWebClientIds.length === 0) {
+      throw new UnauthorizedException('Google sign-in is not configured');
+    }
+
+    const ticket = await this.oauth2Client
+      .verifyIdToken({ idToken, audience: this.allowedWebClientIds })
+      .catch(() => {
+        throw new UnauthorizedException('Invalid or expired Google session');
+      });
+
+    const payload = ticket.getPayload();
+    if (!payload?.email || payload.email_verified === false) {
+      throw new UnauthorizedException('Google account has no verified email');
+    }
+
+    return {
+      googleId: payload.sub,
+      email: payload.email,
+      displayName: payload.name ?? null,
+      photoUrl: payload.picture ?? null,
     };
   }
 

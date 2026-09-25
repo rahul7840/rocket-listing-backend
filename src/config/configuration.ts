@@ -18,6 +18,8 @@ export interface AppConfig {
   googleAuth: {
     /** OAuth client IDs the extension is allowed to mint access tokens for (local dev + published store build). */
     clientIds: string[];
+    /** OAuth "Web application" client IDs the website's Sign in with Google button is allowed to mint ID tokens for. */
+    webClientIds: string[];
   };
   jwt: {
     secret: string;
@@ -55,6 +57,14 @@ export default (): AppConfig => ({
     // build id + Chrome Web Store build id). A token whose audience isn't in
     // this list is rejected, so it can't have been minted for another app.
     clientIds: (process.env.GOOGLE_OAUTH_CLIENT_IDS ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean),
+    // Comma-separated - one per "Web application" OAuth client (the website's
+    // Google Identity Services button). Separate from clientIds above because
+    // web ID tokens and extension access tokens are minted for different
+    // client types and verified differently.
+    webClientIds: (process.env.GOOGLE_OAUTH_WEB_CLIENT_IDS ?? '')
       .split(',')
       .map((id) => id.trim())
       .filter(Boolean),
