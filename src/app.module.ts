@@ -18,6 +18,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { MeeshoPaymentsModule } from './modules/meesho-payments/meesho-payments.module';
 import { ProductCostsModule } from './modules/product-costs/product-costs.module';
 import { MeeshoCategoriesModule } from './modules/meesho-categories/meesho-categories.module';
+import { ListingsModule } from './modules/listings/listings.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { MeeshoCategoriesModule } from './modules/meesho-categories/meesho-categ
     MeeshoPaymentsModule,
     ProductCostsModule,
     MeeshoCategoriesModule,
+    ListingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
