@@ -3,6 +3,7 @@ import { SequelizeModule } from '@nestjs/sequelize';
 import { AdminAuthModule } from './auth/admin-auth.module';
 import { AdminUser } from './models/admin-user.model';
 import { Template } from '../templates/models/template.model';
+import { TemplateData } from '../templates/models/template-data.model';
 import { User } from '../users/models/user.model';
 import { UserSubscription } from '../subscriptions/models/user-subscription.model';
 import { UsersModule } from '../users/users.module';
@@ -33,6 +34,7 @@ import { PaymentWebhookEvent } from '../payment-gateway/models/payment-webhook-e
     SequelizeModule.forFeature([
       AdminUser,
       Template,
+      TemplateData,
       UserSubscription,
       User,
       Payment,

@@ -1,5 +1,14 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
+import { TemplateSource } from '../../../templates/models/template.model';
 
 export class ListTemplatesQueryDto {
   @IsOptional()
@@ -12,5 +21,25 @@ export class ListTemplatesQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   limit?: number;
+
+  /** Matches the template name, its domain, or the owner's email / name. */
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsIn(Object.values(TemplateSource))
+  source?: TemplateSource;
+
+  /** Only templates owned by this user. */
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
+
+  /** "recent" (default) or "plays" for most-played first. */
+  @IsOptional()
+  @IsIn(['recent', 'plays'])
+  sort?: 'recent' | 'plays';
 }
