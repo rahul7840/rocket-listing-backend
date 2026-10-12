@@ -13,6 +13,9 @@ import { AdminSubscriptionsController } from './subscriptions/admin-subscription
 import { AdminPlansController } from './plans/admin-plans.controller';
 import { AdminTemplatesController } from './templates/admin-templates.controller';
 import { AdminDashboardController } from './dashboard/admin-dashboard.controller';
+import { AdminPaymentsController } from './payments/admin-payments.controller';
+import { Payment } from '../payment-gateway/models/payment.model';
+import { PaymentWebhookEvent } from '../payment-gateway/models/payment-webhook-event.model';
 
 /**
  * Back-office API, entirely additive to the app: its own auth (AdminAuthModule,
@@ -27,7 +30,14 @@ import { AdminDashboardController } from './dashboard/admin-dashboard.controller
  */
 @Module({
   imports: [
-    SequelizeModule.forFeature([AdminUser, Template, UserSubscription, User]),
+    SequelizeModule.forFeature([
+      AdminUser,
+      Template,
+      UserSubscription,
+      User,
+      Payment,
+      PaymentWebhookEvent,
+    ]),
     AdminAuthModule,
     UsersModule,
     SubscriptionsModule,
@@ -39,6 +49,7 @@ import { AdminDashboardController } from './dashboard/admin-dashboard.controller
     AdminPlansController,
     AdminTemplatesController,
     AdminDashboardController,
+    AdminPaymentsController,
   ],
 })
 export class AdminModule {}
