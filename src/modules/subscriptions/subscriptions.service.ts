@@ -62,14 +62,51 @@ export class SubscriptionsService {
     private readonly usageService: UsageService,
   ) {}
 
-  /** The user's single current ACTIVE subscription row, if any. */
+  /**
+   * The user's single current ACTIVE subscription row, if any. A paid
+   * subscription whose currentPeriodEnd has passed is lapsed here, lazily:
+   * it is marked expired and the user is dropped back to Free, so every
+   * entitlement check (which all resolve through this method) sees the
+   * lapse without needing a scheduled job.
+   */
   async getCurrentSubscription(
     userId: string,
   ): Promise<UserSubscription | null> {
-    return this.subscriptionModel.findOne({
+    const current = await this.subscriptionModel.findOne({
       where: { userId, status: SubscriptionStatus.ACTIVE },
       include: [{ model: Plan, include: [PlanFeature] }],
     });
+
+    if (
+      current?.currentPeriodEnd &&
+      current.currentPeriodEnd.getTime() <= Date.now()
+    ) {
+      await this.expireSubscription(userId);
+      await this.assignPlan(userId, 'FREE', SubscriptionSource.SYSTEM);
+      return this.subscriptionModel.findOne({
+        where: { userId, status: SubscriptionStatus.ACTIVE },
+        include: [{ model: Plan, include: [PlanFeature] }],
+      });
+    }
+
+    return current;
+  }
+
+  /**
+   * Renewal of the SAME plan: pushes currentPeriodEnd out on the existing
+   * active row instead of closing and re-creating it (no new history row).
+   */
+  async extendCurrentPeriod(
+    userId: string,
+    currentPeriodEnd: Date,
+  ): Promise<UserSubscription> {
+    const current = await this.subscriptionModel.findOne({
+      where: { userId, status: SubscriptionStatus.ACTIVE },
+    });
+    if (!current) {
+      throw new NotFoundException('No active subscription to extend');
+    }
+    return current.update({ currentPeriodEnd });
   }
 
   /** The plan (with its features) behind the user's current active subscription, if any. */

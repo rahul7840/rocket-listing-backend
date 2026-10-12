@@ -32,6 +32,10 @@ export interface AppConfig {
     seedPassword: string;
   };
   razorpay: {
+    /** Razorpay key id (RAZORPAY_API_KEY, rzp_live_... / rzp_test_...). Safe to send to the browser. */
+    keyId: string;
+    /** Razorpay key secret (RAZORPAY_KEY_SECRET). Backend only - never expose. */
+    keySecret: string;
     /** Secret set on the webhook in the Razorpay dashboard (not the API key secret). */
     webhookSecret: string;
   };
@@ -88,6 +92,8 @@ export default (): AppConfig => ({
     seedPassword: process.env.ADMIN_SEED_PASSWORD ?? '',
   },
   razorpay: {
+    keyId: process.env.RAZORPAY_API_KEY ?? '',
+    keySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
   },
 });

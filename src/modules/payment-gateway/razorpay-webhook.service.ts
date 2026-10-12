@@ -13,12 +13,24 @@ import {
   PaymentWebhookEvent,
   WebhookEventStatus,
 } from './models/payment-webhook-event.model';
+import { PaymentsService } from './payments.service';
 
 const PROVIDER = 'razorpay';
 
 interface RazorpayWebhookBody {
   event?: string;
-  payload?: Record<string, { entity?: { id?: string } } | undefined>;
+  payload?: Record<
+    string,
+    | {
+        entity?: {
+          id?: string;
+          order_id?: string;
+          payment_id?: string;
+          amount?: number;
+        };
+      }
+    | undefined
+  >;
 }
 
 @Injectable()
@@ -29,6 +41,7 @@ export class RazorpayWebhookService {
     private readonly configService: ConfigService<AppConfig>,
     @InjectModel(PaymentWebhookEvent)
     private readonly eventModel: typeof PaymentWebhookEvent,
+    private readonly payments: PaymentsService,
   ) {}
 
   /** HMAC-SHA256 of the *raw* request body with the webhook secret, hex. */
@@ -98,7 +111,7 @@ export class RazorpayWebhookService {
     }
 
     try {
-      await this.dispatch(body.event);
+      await this.dispatch(body.event, body);
       await row.update({
         status: WebhookEventStatus.PROCESSED,
         processedAt: new Date(),
@@ -116,21 +129,32 @@ export class RazorpayWebhookService {
   }
 
   /**
-   * Hook point for business logic (activate/extend/cancel subscriptions).
-   * Add real handling per event once a plan <-> Razorpay plan mapping exists.
+   * Webhook safety net for the verify endpoint: if the user paid but closed
+   * the tab before /verify ran, these events still grant the plan.
    */
-  private async dispatch(event: string): Promise<void> {
+  private async dispatch(event: string, body: RazorpayWebhookBody) {
+    const payment = body.payload?.payment?.entity;
     switch (event) {
       case 'payment.captured':
-      case 'payment.failed':
       case 'order.paid':
-      case 'subscription.activated':
-      case 'subscription.charged':
-      case 'subscription.cancelled':
-      case 'subscription.completed':
-      case 'subscription.halted':
-        this.logger.log(`Received ${event}`);
+        if (payment?.id && payment.order_id) {
+          await this.payments.fulfill(
+            payment.order_id,
+            payment.id,
+            payment.amount,
+          );
+        }
         break;
+      case 'refund.processed': {
+        const refund = body.payload?.refund?.entity;
+        if (refund?.payment_id) {
+          await this.payments.handleRefund(
+            refund.payment_id,
+            refund.amount ?? 0,
+          );
+        }
+        break;
+      }
       default:
         this.logger.debug(`Unhandled razorpay event ${event}`);
     }
