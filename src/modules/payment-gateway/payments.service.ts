@@ -70,6 +70,7 @@ export class PaymentsService {
     const paymentId = randomUUID();
     const res = await fetch(`${RAZORPAY_API}/orders`, {
       method: 'POST',
+      signal: AbortSignal.timeout(10_000),
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`,
@@ -120,6 +121,10 @@ export class PaymentsService {
     });
     if (!payment) throw new NotFoundException('Order not found');
 
+    // An empty key would make the HMAC trivially forgeable.
+    if (!this.razorpay.keySecret) {
+      throw new ServiceUnavailableException('Payments are not configured');
+    }
     const expected = createHmac('sha256', this.razorpay.keySecret)
       .update(`${dto.razorpay_order_id}|${dto.razorpay_payment_id}`)
       .digest('hex');
@@ -214,7 +219,10 @@ export class PaymentsService {
     );
   }
 
-  /** Full refund: mark it and drop the user back to Free if that plan is still theirs. */
+  /**
+   * Full refund: takes back exactly the time that payment bought. If other
+   * paid time remains the user keeps it; if nothing is left they drop to Free.
+   */
   async handleRefund(razorpayPaymentId: string, refundedAmount: number) {
     const payment = await this.paymentModel.findOne({
       where: { razorpayPaymentId },
@@ -233,7 +241,17 @@ export class PaymentsService {
     const current = await this.subscriptionsService.getCurrentSubscription(
       payment.userId,
     );
-    if (current?.plan?.code === payment.planCode) {
+    if (current?.plan?.code !== payment.planCode || !current.currentPeriodEnd) {
+      return;
+    }
+    const days = PLAN_PRICING[payment.planCode]?.[payment.interval]?.days ?? 0;
+    const newEnd = new Date(current.currentPeriodEnd.getTime() - days * DAY_MS);
+    if (newEnd.getTime() > Date.now()) {
+      await this.subscriptionsService.extendCurrentPeriod(
+        payment.userId,
+        newEnd,
+      );
+    } else {
       await this.subscriptionsService.assignPlan(
         payment.userId,
         'FREE',

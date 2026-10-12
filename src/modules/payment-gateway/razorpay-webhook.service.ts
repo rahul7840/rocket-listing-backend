@@ -103,11 +103,17 @@ export class RazorpayWebhookService {
         payload: body as Record<string, unknown>,
       });
     } catch (err) {
-      if (err instanceof UniqueConstraintError) {
+      if (!(err instanceof UniqueConstraintError)) throw err;
+      const existing = await this.eventModel.findOne({
+        where: { provider: PROVIDER, eventId },
+      });
+      // A retry of an event that already succeeded is dropped; one that
+      // failed (or never finished) is processed again - handlers are idempotent.
+      if (!existing || existing.status === WebhookEventStatus.PROCESSED) {
         this.logger.log(`Duplicate razorpay event ${eventId} ignored`);
         return { duplicate: true };
       }
-      throw err;
+      row = existing;
     }
 
     try {
@@ -117,13 +123,14 @@ export class RazorpayWebhookService {
         processedAt: new Date(),
       });
     } catch (err) {
-      // Logged and stored, but still acked: the event is persisted and can be
-      // replayed from payment_webhook_events instead of relying on retries.
       this.logger.error(`Handling ${body.event} (${eventId}) failed`, err);
       await row.update({
         status: WebhookEventStatus.FAILED,
         error: err instanceof Error ? err.message : String(err),
       });
+      // Not acked: a 5xx makes Razorpay redeliver (for up to 24h), so a paid
+      // user is not left unupgraded by a transient error.
+      throw err;
     }
     return { duplicate: false };
   }

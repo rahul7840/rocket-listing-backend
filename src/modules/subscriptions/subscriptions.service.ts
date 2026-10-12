@@ -81,8 +81,7 @@ export class SubscriptionsService {
       current?.currentPeriodEnd &&
       current.currentPeriodEnd.getTime() <= Date.now()
     ) {
-      await this.expireSubscription(userId);
-      await this.assignPlan(userId, 'FREE', SubscriptionSource.SYSTEM);
+      await this.lapseToFree(userId);
       return this.subscriptionModel.findOne({
         where: { userId, status: SubscriptionStatus.ACTIVE },
         include: [{ model: Plan, include: [PlanFeature] }],
@@ -90,6 +89,49 @@ export class SubscriptionsService {
     }
 
     return current;
+  }
+
+  /**
+   * Expires a lapsed paid subscription and drops the user to Free in one
+   * transaction. The row is locked and re-checked, so when several requests
+   * from the same user notice the lapse at once only the first acts - the
+   * rest see it already handled (or renewed) and do nothing.
+   */
+  private async lapseToFree(userId: string): Promise<void> {
+    const free = await this.plansService.findByCode('FREE');
+    if (!free) {
+      throw new NotFoundException('Plan FREE not found');
+    }
+    await this.subscriptionModel.sequelize!.transaction(async (transaction) => {
+      const current = await this.subscriptionModel.findOne({
+        where: { userId, status: SubscriptionStatus.ACTIVE },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (
+        !current?.currentPeriodEnd ||
+        current.currentPeriodEnd.getTime() > Date.now()
+      ) {
+        return;
+      }
+      await current.update(
+        { status: SubscriptionStatus.EXPIRED },
+        { transaction },
+      );
+      await this.subscriptionModel.create(
+        {
+          userId,
+          planId: free.planId,
+          status: SubscriptionStatus.ACTIVE,
+          startedAt: new Date(),
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          cancelAtPeriodEnd: false,
+          source: SubscriptionSource.SYSTEM,
+        },
+        { transaction },
+      );
+    });
   }
 
   /**
@@ -147,6 +189,7 @@ export class SubscriptionsService {
         const current = await this.subscriptionModel.findOne({
           where: { userId, status: SubscriptionStatus.ACTIVE },
           transaction,
+          lock: transaction.LOCK.UPDATE,
         });
 
         if (current) {
