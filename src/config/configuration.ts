@@ -31,6 +31,10 @@ export interface AppConfig {
     seedEmail: string;
     seedPassword: string;
   };
+  razorpay: {
+    /** Secret set on the webhook in the Razorpay dashboard (not the API key secret). */
+    webhookSecret: string;
+  };
 }
 
 export default (): AppConfig => ({
@@ -82,5 +86,8 @@ export default (): AppConfig => ({
     // Seeded admin account (src/database/seeders) - bcrypt-hashed on insert.
     seedEmail: process.env.ADMIN_SEED_EMAIL ?? '',
     seedPassword: process.env.ADMIN_SEED_PASSWORD ?? '',
+  },
+  razorpay: {
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
   },
 });

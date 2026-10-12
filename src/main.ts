@@ -14,7 +14,10 @@ import { AppModule } from './app.module';
 import { AppConfig } from './config/configuration';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    // Keeps req.rawBody - needed to verify payment webhook signatures.
+    rawBody: true,
+  });
   const configService = app.get(ConfigService<AppConfig>);
 
   // Trust the first proxy hop so req.ip reflects X-Forwarded-For when deployed

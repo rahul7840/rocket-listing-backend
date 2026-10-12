@@ -19,6 +19,7 @@ import { MeeshoPaymentsModule } from './modules/meesho-payments/meesho-payments.
 import { ProductCostsModule } from './modules/product-costs/product-costs.module';
 import { MeeshoCategoriesModule } from './modules/meesho-categories/meesho-categories.module';
 import { ListingsModule } from './modules/listings/listings.module';
+import { PaymentGatewayModule } from './modules/payment-gateway/payment-gateway.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ListingsModule } from './modules/listings/listings.module';
     ProductCostsModule,
     MeeshoCategoriesModule,
     ListingsModule,
+    PaymentGatewayModule,
   ],
   controllers: [AppController],
   providers: [AppService],
