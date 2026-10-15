@@ -19,6 +19,7 @@ import {
   PAYMENT_DETAILS_FEATURE,
   PAYMENTS_SYNC_FEATURE,
 } from './meesho-payments.service';
+import { PaymentsSyncCountResolver } from './resolvers/payments-sync-count.resolver';
 import { SyncMeeshoPaymentsDto } from './dto/sync-meesho-payments.dto';
 import { SyncMeeshoPaymentDetailsDto } from './dto/sync-meesho-payment-details.dto';
 
@@ -60,9 +61,9 @@ export class MeeshoPaymentsController {
     );
   }
 
-  /** Pro and above; one successful sync per day. */
+  /** Pro and above: one successful sync per day. Free: one sync, ever (a standing cap counted by the resolver). */
   @Post('sync')
-  @RequiresLimit(PAYMENTS_SYNC_FEATURE)
+  @RequiresLimit(PAYMENTS_SYNC_FEATURE, PaymentsSyncCountResolver)
   sync(@Body() dto: SyncMeeshoPaymentsDto, @CurrentUser() user: User) {
     return this.paymentsService.sync(user.userId, dto);
   }

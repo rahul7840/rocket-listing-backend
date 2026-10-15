@@ -11,6 +11,7 @@ import {
   SyncMeeshoPaymentsDto,
 } from './dto/sync-meesho-payments.dto';
 import { SyncMeeshoPaymentDetailsDto } from './dto/sync-meesho-payment-details.dto';
+import { countPaymentsSyncs } from './resolvers/payments-sync-count.resolver';
 
 /** plan_features keys - which plans get them, and the limits, live in that table (migration 20260919120000). */
 export const PAYMENTS_SYNC_FEATURE = 'meesho.payments.sync';
@@ -32,6 +33,10 @@ interface FeatureAccess {
   allowed: boolean;
   /** EntitlementReason - lets the extension tell "upgrade your plan" from "already synced today". */
   reason: string;
+  /** Limit features only: how many the plan allows, how many are used, and per what ('daily'; null = ever, like Free's single sync). */
+  limit?: number | null;
+  used?: number | null;
+  period?: string | null;
 }
 
 export interface MeeshoSyncState {
@@ -242,6 +247,7 @@ export class MeeshoPaymentsService {
    * allows, and which stored payouts still lack order details.
    */
   async getSyncState(userId: string): Promise<MeeshoSyncState> {
+    const syncsEver = await countPaymentsSyncs(this.syncLogModel, userId);
     const [latest, payments, details] = await Promise.all([
       this.paymentModel.findOne({
         where: { userId },
@@ -249,7 +255,10 @@ export class MeeshoPaymentsService {
         order: [['paymentDate', 'DESC']],
         raw: true,
       }),
-      this.subscriptionsService.checkLimit(userId, PAYMENTS_SYNC_FEATURE),
+      // currentCount only matters for a standing cap (Free: one sync ever); a daily plan is counted from its usage counters.
+      this.subscriptionsService.checkLimit(userId, PAYMENTS_SYNC_FEATURE, {
+        currentCount: syncsEver,
+      }),
       this.subscriptionsService.canUse(userId, PAYMENT_DETAILS_FEATURE),
     ]);
 
@@ -264,7 +273,13 @@ export class MeeshoPaymentsService {
 
     return {
       lastPaymentDate: latest?.paymentDate ?? null,
-      paymentsSync: { allowed: payments.allowed, reason: payments.reason },
+      paymentsSync: {
+        allowed: payments.allowed,
+        reason: payments.reason,
+        limit: payments.limit,
+        used: payments.used,
+        period: payments.period,
+      },
       paymentDetailsSync: { allowed: details.allowed, reason: details.reason },
       pendingDetailDates: pending.map((row) => row.paymentDate),
     };

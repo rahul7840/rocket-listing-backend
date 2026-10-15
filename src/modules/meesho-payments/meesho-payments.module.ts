@@ -8,6 +8,7 @@ import { MeeshoPaymentDetail } from './models/meesho-payment-detail.model';
 import { MeeshoPaymentSyncLog } from './models/meesho-payment-sync-log.model';
 import { MeeshoPaymentsController } from './meesho-payments.controller';
 import { MeeshoPaymentsService } from './meesho-payments.service';
+import { PaymentsSyncCountResolver } from './resolvers/payments-sync-count.resolver';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { MeeshoPaymentsService } from './meesho-payments.service';
     ProductCostsModule,
   ],
   controllers: [MeeshoPaymentsController],
-  providers: [MeeshoPaymentsService],
+  providers: [MeeshoPaymentsService, PaymentsSyncCountResolver],
   exports: [MeeshoPaymentsService],
 })
 export class MeeshoPaymentsModule {}
