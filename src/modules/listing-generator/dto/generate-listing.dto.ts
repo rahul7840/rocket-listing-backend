@@ -27,6 +27,17 @@ export class VariantContextDto {
   currentSku?: string;
 }
 
+/** One other filled-in form field (e.g. Color: Black, Fabric: Cotton) - context only, never generated. */
+export class ListingDetailDto {
+  @IsString()
+  @MaxLength(80)
+  name: string;
+
+  @IsString()
+  @MaxLength(200)
+  value: string;
+}
+
 export class GenerateListingDto {
   @IsOptional()
   @IsString()
@@ -47,6 +58,14 @@ export class GenerateListingDto {
   @IsString()
   @MaxLength(500)
   sourceUrl?: string;
+
+  /** Other values already on the form (colour, fabric, brand, ...) so the name/description fit the product. Optional. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => ListingDetailDto)
+  details?: ListingDetailDto[];
 
   /** One entry per SKU field found in the recording - usually one per variant. */
   @IsArray()

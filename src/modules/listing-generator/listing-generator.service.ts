@@ -56,6 +56,10 @@ export class ListingGeneratorService {
       lines.push(
         `- Previously used description (for inspiration, do not repeat verbatim): ${dto.description}`,
       );
+    if (dto.details?.length)
+      lines.push(
+        `- Product details already filled on the form: ${dto.details.map((d) => `${d.name}: ${d.value}`).join('; ')}`,
+      );
     if (dto.variants.some((v) => v.label))
       lines.push(
         `- This listing has variants: ${dto.variants.map((v, i) => v.label ?? `variant ${i + 1}`).join(', ')}`,
@@ -65,7 +69,7 @@ export class ListingGeneratorService {
       '',
       'Rules:',
       '- productName: a concise, realistic marketplace product title (max ~80 characters).',
-      '- description: 2-4 sentences, factual-sounding and appealing, consistent with productName. No fabricated brand names, certifications, or claims not implied by the context.',
+      '- description: 2-4 sentences, factual-sounding and appealing, consistent with productName and the product details above (use them, never contradict them). No fabricated brand names, certifications, or claims not implied by the context.',
     );
 
     return lines.join('\n');

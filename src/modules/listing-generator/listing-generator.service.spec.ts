@@ -72,4 +72,20 @@ describe('ListingGeneratorService', () => {
     expect(result.productName).toBe('Wireless Mouse');
     expect(result.description).toBe('Old description');
   });
+
+  it('puts the other form details into the prompt so the name and description fit the product', async () => {
+    const dto = makeDto({ details: [{ name: 'Color', value: 'Maroon' }, { name: 'Fabric', value: 'Cotton' }] });
+    const generateJson = jest.fn().mockResolvedValue(GEMINI_RESPONSE);
+
+    await service(generateJson).generate(dto);
+
+    const prompt = generateJson.mock.calls[0][0] as string;
+    expect(prompt).toContain('Color: Maroon; Fabric: Cotton');
+  });
+
+  it('still works with no details (older extension versions)', async () => {
+    const generateJson = jest.fn().mockResolvedValue(GEMINI_RESPONSE);
+    await service(generateJson).generate(makeDto());
+    expect(generateJson.mock.calls[0][0] as string).not.toContain('Product details already filled');
+  });
 });
