@@ -27,6 +27,10 @@ export class User extends Model {
   @Column({ type: DataType.DATE, allowNull: true })
   lastLoginAt: Date | null;
 
+  /** Last authenticated request, throttled - see AuthService.touchLastActive. */
+  @Column({ type: DataType.DATE, allowNull: true })
+  lastActiveAt: Date | null;
+
   @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
   isActive: boolean;
 
