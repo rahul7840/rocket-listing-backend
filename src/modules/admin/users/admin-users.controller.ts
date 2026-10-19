@@ -43,6 +43,53 @@ export class AdminUsersController {
     return { data, total, page, limit };
   }
 
+  /**
+   * Registration trend for the admin Users page: signups per day over the last `days` (7-365, default 30),
+   * with a running total of all users so the chart can show growth. Declared before ':id' so it isn't read as an id.
+   */
+  @Get('signups')
+  async signups(@Query('days') daysParam?: string) {
+    const days = Math.min(Math.max(Math.trunc(Number(daysParam)) || 30, 7), 365);
+    const sequelize = this.userModel.sequelize!;
+    const [rows, [window]] = await Promise.all([
+      sequelize.query<{ date: string; count: string; total: string }>(
+        `SELECT to_char(d::date, 'YYYY-MM-DD') AS date,
+                COUNT(u."userId") AS count,
+                (SELECT COUNT(*) FROM users WHERE "createdAt"::date <= d::date) AS total
+           FROM generate_series(CURRENT_DATE - (:days::int - 1), CURRENT_DATE, interval '1 day') d
+           LEFT JOIN users u ON u."createdAt"::date = d::date
+          GROUP BY d ORDER BY d`,
+        { replacements: { days }, type: QueryTypes.SELECT },
+      ),
+      sequelize.query<{ previous: string }>(
+        `SELECT COUNT(*) AS previous FROM users
+          WHERE "createdAt"::date BETWEEN CURRENT_DATE - (:days::int * 2 - 1) AND CURRENT_DATE - :days::int`,
+        { replacements: { days }, type: QueryTypes.SELECT },
+      ),
+    ]);
+
+    const daily = rows.map((r) => ({
+      date: r.date,
+      count: Number(r.count),
+      total: Number(r.total),
+    }));
+    const registered = daily.reduce((n, d) => n + d.count, 0);
+    const peak = daily.reduce((best, d) => (d.count > best.count ? d : best), {
+      date: '',
+      count: 0,
+    });
+
+    return {
+      days,
+      registered,
+      previousRegistered: Number(window?.previous ?? 0),
+      totalUsers: daily.at(-1)?.total ?? 0,
+      averagePerDay: Number((registered / days).toFixed(1)),
+      peak: peak.count > 0 ? { date: peak.date, count: peak.count } : null,
+      daily,
+    };
+  }
+
   /** User detail plus their current subscription and full plan history - findOne() 404s if the id doesn't exist. */
   @Get(':id')
   async findOne(@Param('id') id: string) {
