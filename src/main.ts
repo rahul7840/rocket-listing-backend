@@ -4,7 +4,7 @@
 import 'dotenv/config';
 
 import { join } from 'path';
-import * as compression from 'compression';
+import compression = require('compression');
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
