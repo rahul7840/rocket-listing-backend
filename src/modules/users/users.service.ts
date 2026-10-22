@@ -10,6 +10,8 @@ export interface FindAllUsersOptions {
   /** Matched against email/displayName, case-insensitive substring. */
   search?: string;
   isActive?: boolean;
+  /** Only users whose lastActiveAt is on or after the start of today (server time), most recently active first. */
+  activeToday?: boolean;
 }
 
 export interface PaginatedUsers {
@@ -29,7 +31,11 @@ export class UsersService {
     const page = options.page ?? 1;
     const limit = options.limit ?? 20;
 
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
     const where: WhereOptions = {
+      ...(options.activeToday ? { lastActiveAt: { [Op.gte]: startOfToday } } : {}),
       ...(options.isActive !== undefined ? { isActive: options.isActive } : {}),
       ...(options.search
         ? {
@@ -45,7 +51,7 @@ export class UsersService {
       where,
       limit,
       offset: (page - 1) * limit,
-      order: [['createdAt', 'DESC']],
+      order: options.activeToday ? [['lastActiveAt', 'DESC']] : [['createdAt', 'DESC']],
     });
 
     return { data: rows, total: count };

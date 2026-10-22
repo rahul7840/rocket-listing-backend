@@ -39,6 +39,7 @@ export class AdminUsersController {
       limit,
       search: query.search,
       isActive: query.isActive,
+      activeToday: query.activeToday,
     });
     return { data, total, page, limit };
   }
