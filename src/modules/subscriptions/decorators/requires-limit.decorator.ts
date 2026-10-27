@@ -23,6 +23,18 @@ import {
  *    handler completes successfully.
  * The decorator itself does no checking - it just declares what's required.
  */
+/**
+ * Like RequiresLimit, but only checks: the request is turned away when the limit is already reached and nothing is
+ * counted. The handler records usage itself (SubscriptionsService.recordUsage) for the calls that should count.
+ */
+export const RequiresLimitCheck = (featureKey: string) =>
+  applyDecorators(
+    SetMetadata(REQUIRES_LIMIT_KEY, {
+      featureKey,
+    } satisfies RequiresLimitMetadata),
+    UseGuards(SubscriptionLimitGuard),
+  );
+
 export const RequiresLimit = (
   featureKey: string,
   resolver?: Type<ResourceCountResolver>,
