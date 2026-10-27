@@ -2,7 +2,9 @@ import { ListingGeneratorService } from './listing-generator.service';
 import { GeminiClient } from './gemini/gemini.client';
 import { GenerateListingDto } from './dto/generate-listing.dto';
 
-function makeDto(overrides: Partial<GenerateListingDto> = {}): GenerateListingDto {
+function makeDto(
+  overrides: Partial<GenerateListingDto> = {},
+): GenerateListingDto {
   return {
     productName: 'Wireless Mouse',
     description: 'Old description',
@@ -17,13 +19,18 @@ const GEMINI_RESPONSE = {
 };
 
 describe('ListingGeneratorService', () => {
-  function service(generateJson: jest.Mock = jest.fn().mockResolvedValue(GEMINI_RESPONSE)): ListingGeneratorService {
+  function service(
+    generateJson: jest.Mock = jest.fn().mockResolvedValue(GEMINI_RESPONSE),
+  ): ListingGeneratorService {
     const gemini = { generateJson } as unknown as GeminiClient;
     return new ListingGeneratorService(gemini);
   }
 
   it('generates a SKU per variant, derived from the product name, with a trailing 4-char unique code', async () => {
-    const dto = makeDto({ productName: 'Wireless Mouse', variants: [{ label: 'Black' }] });
+    const dto = makeDto({
+      productName: 'Wireless Mouse',
+      variants: [{ label: 'Black' }],
+    });
 
     const result = await service().generate(dto);
 
@@ -44,7 +51,10 @@ describe('ListingGeneratorService', () => {
   });
 
   it('gives every variant a SKU tied to the product name even with no variant label', async () => {
-    const dto = makeDto({ productName: 'Wireless Mouse', variants: [{}, {}, {}] });
+    const dto = makeDto({
+      productName: 'Wireless Mouse',
+      variants: [{}, {}, {}],
+    });
 
     const result = await service().generate(dto);
 
@@ -55,7 +65,9 @@ describe('ListingGeneratorService', () => {
 
   it('ignores whatever SKU Gemini might still return - SKUs are always generated locally', async () => {
     const dto = makeDto({ variants: [{ label: 'Black' }] });
-    const generateJson = jest.fn().mockResolvedValue({ ...GEMINI_RESPONSE, sku: 'RANDOM-UNRELATED-CODE' });
+    const generateJson = jest
+      .fn()
+      .mockResolvedValue({ ...GEMINI_RESPONSE, sku: 'RANDOM-UNRELATED-CODE' });
 
     const result = await service(generateJson).generate(dto);
 
@@ -64,8 +76,14 @@ describe('ListingGeneratorService', () => {
   });
 
   it('falls back to productName/description when Gemini omits them', async () => {
-    const dto = makeDto({ productName: 'Wireless Mouse', description: 'Old description', variants: [{}] });
-    const generateJson = jest.fn().mockResolvedValue({ productName: '', description: '' });
+    const dto = makeDto({
+      productName: 'Wireless Mouse',
+      description: 'Old description',
+      variants: [{}],
+    });
+    const generateJson = jest
+      .fn()
+      .mockResolvedValue({ productName: '', description: '' });
 
     const result = await service(generateJson).generate(dto);
 
@@ -74,7 +92,12 @@ describe('ListingGeneratorService', () => {
   });
 
   it('puts the other form details into the prompt so the name and description fit the product', async () => {
-    const dto = makeDto({ details: [{ name: 'Color', value: 'Maroon' }, { name: 'Fabric', value: 'Cotton' }] });
+    const dto = makeDto({
+      details: [
+        { name: 'Color', value: 'Maroon' },
+        { name: 'Fabric', value: 'Cotton' },
+      ],
+    });
     const generateJson = jest.fn().mockResolvedValue(GEMINI_RESPONSE);
 
     await service(generateJson).generate(dto);
@@ -86,6 +109,8 @@ describe('ListingGeneratorService', () => {
   it('still works with no details (older extension versions)', async () => {
     const generateJson = jest.fn().mockResolvedValue(GEMINI_RESPONSE);
     await service(generateJson).generate(makeDto());
-    expect(generateJson.mock.calls[0][0] as string).not.toContain('Product details already filled');
+    expect(generateJson.mock.calls[0][0] as string).not.toContain(
+      'Product details already filled',
+    );
   });
 });

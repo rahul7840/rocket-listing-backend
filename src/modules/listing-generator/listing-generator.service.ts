@@ -32,10 +32,9 @@ export class ListingGeneratorService {
 
   async generate(dto: GenerateListingDto): Promise<ListingFieldsResponse> {
     const prompt = this.buildPrompt(dto);
-    const raw = await this.gemini.generateJson<Pick<ListingFieldsResponse, 'productName' | 'description'>>(
-      prompt,
-      RESPONSE_SCHEMA,
-    );
+    const raw = await this.gemini.generateJson<
+      Pick<ListingFieldsResponse, 'productName' | 'description'>
+    >(prompt, RESPONSE_SCHEMA);
     return this.normalize(raw, dto);
   }
 
@@ -99,10 +98,16 @@ export class ListingGeneratorService {
    * earlier variant in this same request produced - guaranteeing every SKU in a
    * batch is unique regardless of how many variants are requested.
    */
-  private buildSku(productName: string, variantLabel: string | undefined, seen: Set<string>): string {
+  private buildSku(
+    productName: string,
+    variantLabel: string | undefined,
+    seen: Set<string>,
+  ): string {
     const productPrefix = this.slug(productName, 6) || 'PRODUCT'.slice(0, 6);
     const variantPrefix = this.slug(variantLabel, 4);
-    const base = variantPrefix ? `${productPrefix}-${variantPrefix}` : productPrefix;
+    const base = variantPrefix
+      ? `${productPrefix}-${variantPrefix}`
+      : productPrefix;
 
     let sku = '';
     for (let attempt = 0; attempt < MAX_SKU_GENERATION_ATTEMPTS; attempt += 1) {
@@ -112,7 +117,9 @@ export class ListingGeneratorService {
     if (seen.has(sku)) {
       // Astronomically unlikely with a 36^4 code space, but never emit a
       // silent duplicate - widen the code rather than loop forever.
-      this.logger.warn('SKU code space exhausted for this batch - widening the fallback code');
+      this.logger.warn(
+        'SKU code space exhausted for this batch - widening the fallback code',
+      );
       sku = `${base}-${this.randomCode(SKU_CODE_LENGTH + 2)}`;
     }
     seen.add(sku);

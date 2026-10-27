@@ -18,6 +18,8 @@ import { AdminModule } from './modules/admin/admin.module';
 import { MeeshoPaymentsModule } from './modules/meesho-payments/meesho-payments.module';
 import { ProductCostsModule } from './modules/product-costs/product-costs.module';
 import { MeeshoCategoriesModule } from './modules/meesho-categories/meesho-categories.module';
+import { ListingPriceModule } from './modules/listing-price/listing-price.module';
+import { SellerAnalysisModule } from './modules/seller-analysis/seller-analysis.module';
 import { ListingsModule } from './modules/listings/listings.module';
 import { PaymentGatewayModule } from './modules/payment-gateway/payment-gateway.module';
 
@@ -42,6 +44,8 @@ import { PaymentGatewayModule } from './modules/payment-gateway/payment-gateway.
     MeeshoPaymentsModule,
     ProductCostsModule,
     MeeshoCategoriesModule,
+    ListingPriceModule,
+    SellerAnalysisModule,
     ListingsModule,
     PaymentGatewayModule,
   ],

@@ -49,4 +49,32 @@ export class MeeshoCategoriesService {
       ),
     }));
   }
+  /**
+   * The names from the top of the tree down to the category an id stands for, for showing "Men Fashion > ... > Tshirts".
+   * Meesho reuses an id across levels, so when several nodes carry it the one whose name is the product's own
+   * sub-sub-category name wins, then the deepest level. Never throws on a missing id: undefined means "not found".
+   */
+  async pathFor(id: number, ownName?: string): Promise<string[] | undefined> {
+    const norm = (s: string): string =>
+      s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const nodes = await this.categoryModel.findAll({
+      where: { externalId: id },
+      raw: true,
+    });
+    if (nodes.length === 0) return undefined;
+    const named = ownName
+      ? nodes.find((n) => norm(n.name) === norm(ownName))
+      : undefined;
+    const node = named ?? [...nodes].sort((a, b) => b.level - a.level)[0];
+
+    const names: string[] = [node.name];
+    let parentId = node.parentId;
+    for (let depth = 0; parentId && depth < 4; depth += 1) {
+      const parent = await this.categoryModel.findByPk(parentId, { raw: true });
+      if (!parent) break;
+      names.unshift(parent.name);
+      parentId = parent.parentId;
+    }
+    return names;
+  }
 }

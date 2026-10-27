@@ -24,16 +24,25 @@ export class GeminiClient {
     this.client = new GoogleGenAI({ apiKey: GEMINI_MODEL_CONFIG.apiKey });
   }
 
-  async generateJson<T>(prompt: string, responseSchema: Schema): Promise<T> {
+  /**
+   * `overrides` lets a caller that wants analysis rather than creative copy lower the sampling temperature;
+   * everything else stays in model.configure.ts.
+   */
+  async generateJson<T>(
+    prompt: string,
+    responseSchema: Schema,
+    overrides: { temperature?: number; maxOutputTokens?: number } = {},
+  ): Promise<T> {
     try {
       const response = await this.client.models.generateContent({
         model: GEMINI_MODEL_CONFIG.model,
         contents: prompt,
         config: {
-          temperature: GEMINI_MODEL_CONFIG.temperature,
+          temperature: overrides.temperature ?? GEMINI_MODEL_CONFIG.temperature,
           topP: GEMINI_MODEL_CONFIG.topP,
           topK: GEMINI_MODEL_CONFIG.topK,
-          maxOutputTokens: GEMINI_MODEL_CONFIG.maxOutputTokens,
+          maxOutputTokens:
+            overrides.maxOutputTokens ?? GEMINI_MODEL_CONFIG.maxOutputTokens,
           responseMimeType: 'application/json',
           responseSchema,
           httpOptions: { timeout: GEMINI_MODEL_CONFIG.timeoutMs },

@@ -6,6 +6,6 @@ import { GeminiClient } from './gemini/gemini.client';
 @Module({
   controllers: [ListingGeneratorController],
   providers: [ListingGeneratorService, GeminiClient],
-  exports: [ListingGeneratorService],
+  exports: [ListingGeneratorService, GeminiClient],
 })
 export class ListingGeneratorModule {}
