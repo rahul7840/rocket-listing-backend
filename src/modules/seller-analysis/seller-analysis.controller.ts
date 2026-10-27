@@ -2,8 +2,7 @@ import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RequiresFeature } from '../subscriptions/decorators/requires-feature.decorator';
-import { LISTING_REPORT_FEATURE } from '../subscriptions/listing-pro-features';
+import { RequiresPaidPlan } from '../subscriptions/decorators/requires-paid-plan.decorator';
 import { SellerAnalysisDto } from './dto/seller-analysis.dto';
 import { SellerAnalysisService } from './seller-analysis.service';
 
@@ -14,7 +13,7 @@ export class SellerAnalysisController {
   constructor(private readonly sellerAnalysis: SellerAnalysisService) {}
 
   @Post('pdf')
-  @RequiresFeature(LISTING_REPORT_FEATURE)
+  @RequiresPaidPlan()
   @ApiOperation({
     summary: 'Build the seller analysis PDF from product data the caller read',
   })

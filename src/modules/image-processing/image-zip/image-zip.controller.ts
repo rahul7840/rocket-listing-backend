@@ -2,8 +2,7 @@ import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RequiresFeature } from '../../subscriptions/decorators/requires-feature.decorator';
-import { LISTING_IMAGES_FEATURE } from '../../subscriptions/listing-pro-features';
+import { RequiresPaidPlan } from '../../subscriptions/decorators/requires-paid-plan.decorator';
 import { ImageZipDto } from './dto/image-zip.dto';
 import { ImageZipService } from './image-zip.service';
 
@@ -14,7 +13,7 @@ export class ImageZipController {
   constructor(private readonly imageZipService: ImageZipService) {}
 
   @Post()
-  @RequiresFeature(LISTING_IMAGES_FEATURE)
+  @RequiresPaidPlan()
   @ApiOperation({
     summary: "Download a listing's Meesho images and return them as one zip",
   })
