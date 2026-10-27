@@ -42,7 +42,8 @@ const positive = (v: unknown): number | undefined => {
 const priceOf = (v: unknown): number | undefined =>
   positive(isBag(v) ? v.price : v);
 
-const rupee = (n: number): string => `₹${Math.round(n).toLocaleString('en-IN')}`;
+const rupee = (n: number): string =>
+  `₹${Math.round(n).toLocaleString('en-IN')}`;
 const clamp = (n: number, lo: number, hi: number): number =>
   Math.min(hi, Math.max(lo, n));
 
@@ -142,7 +143,9 @@ export function estimateListingPrice(
       : [];
   const cod = offers.find(
     (o): o is Bag =>
-      isBag(o) && o.type === 'cod_unbundling' && positive(o.amount) !== undefined,
+      isBag(o) &&
+      o.type === 'cod_unbundling' &&
+      positive(o.amount) !== undefined,
   );
   const offerAmount = add(
     'offerAmount',
@@ -154,13 +157,16 @@ export function estimateListingPrice(
     isBag(c.special_offers) && typeof c.special_offers.display_text === 'string'
       ? c.special_offers.display_text
       : '';
-  const displayed = positive(
-    /₹\s*([\d,]+(?:\.\d+)?)/.exec(displayText)?.[1],
-  );
+  const displayed = positive(/₹\s*([\d,]+(?:\.\d+)?)/.exec(displayText)?.[1]);
 
   // Consistency checks: they say how far the reply can be trusted, they never change the estimate.
   const price = productPrice ?? catalogPrice;
-  if (original !== undefined && price !== undefined && original > price && stated !== undefined) {
+  if (
+    original !== undefined &&
+    price !== undefined &&
+    original > price &&
+    stated !== undefined
+  ) {
     const expected = original - price;
     notes.push(
       Math.abs(expected - stated) <= cfg.tolerance
@@ -171,7 +177,8 @@ export function estimateListingPrice(
   if (offerAmount !== undefined && price !== undefined) {
     const offerPrice = price - offerAmount;
     notes.push(
-      displayed === undefined || Math.abs(displayed - offerPrice) <= cfg.tolerance
+      displayed === undefined ||
+        Math.abs(displayed - offerPrice) <= cfg.tolerance
         ? `Prepaid offer price ${rupee(offerPrice)} = ${rupee(price)} - ${rupee(offerAmount)}.`
         : `Prepaid offer price ${rupee(offerPrice)} differs from the ${rupee(displayed)} Meesho displays.`,
     );

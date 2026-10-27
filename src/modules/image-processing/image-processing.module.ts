@@ -4,13 +4,14 @@ import { ImageVariantsService } from './image-variants/image-variants.service';
 import { ImageZipController } from './image-zip/image-zip.controller';
 import { ImageZipService } from './image-zip/image-zip.service';
 import { AuthModule } from '../auth/auth.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 
 /**
  * Home for non-AI, server-side image tooling (variant generation today;
  * future business logic such as image generation/comparison belongs here too).
  */
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, SubscriptionsModule],
   controllers: [ImageVariantsController, ImageZipController],
   providers: [ImageVariantsService, ImageZipService],
   exports: [ImageVariantsService],
