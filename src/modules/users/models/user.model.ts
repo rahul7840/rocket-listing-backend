@@ -24,6 +24,10 @@ export class User extends Model {
   @Column({ type: DataType.STRING, allowNull: true })
   photoUrl: string | null;
 
+  /** Set from the Razorpay webhook when the user pays; null until then. */
+  @Column({ type: DataType.STRING(20), allowNull: true, defaultValue: null })
+  mobileNumber: string | null;
+
   @Column({ type: DataType.DATE, allowNull: true })
   lastLoginAt: Date | null;
 
