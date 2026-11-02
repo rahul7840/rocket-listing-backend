@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { AuthModule } from '../auth/auth.module';
+import { LearningModule } from '../learning/learning.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { User } from '../users/models/user.model';
 import { AutopayService } from './autopay.service';
@@ -23,6 +24,7 @@ import { RazorpayWebhookService } from './razorpay-webhook.service';
     ]),
     AuthModule,
     SubscriptionsModule,
+    LearningModule,
   ],
   controllers: [PaymentGatewayController],
   providers: [RazorpayWebhookService, PaymentsService, AutopayService],

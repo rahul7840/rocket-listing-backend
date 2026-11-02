@@ -15,6 +15,7 @@ import {
 } from './models/payment-webhook-event.model';
 import { User } from '../users/models/user.model';
 import { Payment } from './models/payment.model';
+import { LearningService } from '../learning/learning.service';
 import { AutopayService } from './autopay.service';
 import { PaymentsService } from './payments.service';
 
@@ -52,6 +53,7 @@ export class RazorpayWebhookService {
     @InjectModel(User) private readonly userModel: typeof User,
     private readonly payments: PaymentsService,
     private readonly autopay: AutopayService,
+    private readonly learning: LearningService,
   ) {}
 
   /** HMAC-SHA256 of the *raw* request body with the webhook secret, hex. */
@@ -181,6 +183,16 @@ export class RazorpayWebhookService {
       case 'payment.captured':
       case 'order.paid':
         if (payment?.id && payment.order_id) {
+          // A paid one-to-one session booking is handled by the learning module and goes no further.
+          if (
+            await this.learning.fulfillByOrder(
+              payment.order_id,
+              payment.id,
+              payment.amount,
+            )
+          ) {
+            break;
+          }
           // Saved first, so the number is kept even if fulfilment fails.
           await this.saveMobileNumber(payment.order_id, payment.contact);
           await this.payments.fulfill(
@@ -193,6 +205,14 @@ export class RazorpayWebhookService {
       case 'refund.processed': {
         const refund = body.payload?.refund?.entity;
         if (refund?.payment_id) {
+          if (
+            await this.learning.handleRefund(
+              refund.payment_id,
+              refund.amount ?? 0,
+            )
+          ) {
+            break;
+          }
           await this.payments.handleRefund(
             refund.payment_id,
             refund.amount ?? 0,

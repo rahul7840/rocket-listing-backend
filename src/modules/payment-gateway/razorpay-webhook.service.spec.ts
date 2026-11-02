@@ -20,6 +20,11 @@ function build() {
   const userModel: any = { update: jest.fn() };
   const payments: any = { fulfill: jest.fn(), handleRefund: jest.fn() };
   const autopay: any = { handleEvent: jest.fn() };
+  // By default an order is not a session booking, so the plan purchase path runs as before.
+  const learning: any = {
+    fulfillByOrder: jest.fn().mockResolvedValue(false),
+    handleRefund: jest.fn().mockResolvedValue(false),
+  };
   const config: any = {
     getOrThrow: () => ({ keyId: 'k', keySecret: 's', webhookSecret: SECRET }),
   };
@@ -30,8 +35,9 @@ function build() {
     userModel,
     payments,
     autopay,
+    learning,
   );
-  return { service, eventRow, eventModel, payments, autopay };
+  return { service, eventRow, eventModel, payments, autopay, learning };
 }
 
 const signed = (body: object) => {
@@ -103,6 +109,37 @@ describe('RazorpayWebhookService', () => {
     await service.handle(raw, sig, 'evt_pay');
     expect(payments.fulfill).toHaveBeenCalledWith('order_1', 'pay_1', 9900);
     expect(autopay.handleEvent).not.toHaveBeenCalled();
+  });
+
+  it('hands a paid session booking to the learning module and does not touch plan purchases', async () => {
+    const { service, payments, learning } = build();
+    learning.fulfillByOrder.mockResolvedValue(true);
+    const { raw, sig } = signed({
+      event: 'payment.captured',
+      payload: {
+        payment: {
+          entity: { id: 'pay_s', order_id: 'order_s', amount: 99900 },
+        },
+      },
+    });
+    await service.handle(raw, sig, 'evt_session');
+    expect(learning.fulfillByOrder).toHaveBeenCalledWith(
+      'order_s',
+      'pay_s',
+      99900,
+    );
+    expect(payments.fulfill).not.toHaveBeenCalled();
+  });
+
+  it('sends a refund to the learning module first, then to plan purchases', async () => {
+    const { service, payments, learning } = build();
+    const { raw, sig } = signed({
+      event: 'refund.processed',
+      payload: { refund: { entity: { payment_id: 'pay_r', amount: 99900 } } },
+    });
+    await service.handle(raw, sig, 'evt_refund');
+    expect(learning.handleRefund).toHaveBeenCalledWith('pay_r', 99900);
+    expect(payments.handleRefund).toHaveBeenCalledWith('pay_r', 99900);
   });
 
   it('ignores a duplicate delivery that already succeeded', async () => {

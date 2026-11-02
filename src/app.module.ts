@@ -22,6 +22,7 @@ import { ListingPriceModule } from './modules/listing-price/listing-price.module
 import { SellerAnalysisModule } from './modules/seller-analysis/seller-analysis.module';
 import { ListingsModule } from './modules/listings/listings.module';
 import { PaymentGatewayModule } from './modules/payment-gateway/payment-gateway.module';
+import { LearningModule } from './modules/learning/learning.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { PaymentGatewayModule } from './modules/payment-gateway/payment-gateway.
     SellerAnalysisModule,
     ListingsModule,
     PaymentGatewayModule,
+    LearningModule,
   ],
   controllers: [AppController],
   providers: [AppService],
