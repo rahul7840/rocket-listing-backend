@@ -15,6 +15,7 @@ import {
 } from './models/payment-webhook-event.model';
 import { User } from '../users/models/user.model';
 import { Payment } from './models/payment.model';
+import { AutopayService } from './autopay.service';
 import { PaymentsService } from './payments.service';
 
 const PROVIDER = 'razorpay';
@@ -30,6 +31,9 @@ interface RazorpayWebhookBody {
           payment_id?: string;
           amount?: number;
           contact?: string;
+          status?: string;
+          paid_count?: number;
+          charge_at?: number | null;
         };
       }
     | undefined
@@ -47,6 +51,7 @@ export class RazorpayWebhookService {
     @InjectModel(Payment) private readonly paymentModel: typeof Payment,
     @InjectModel(User) private readonly userModel: typeof User,
     private readonly payments: PaymentsService,
+    private readonly autopay: AutopayService,
   ) {}
 
   /** HMAC-SHA256 of the *raw* request body with the webhook secret, hex. */
@@ -196,6 +201,10 @@ export class RazorpayWebhookService {
         break;
       }
       default:
+        if (event.startsWith('subscription.')) {
+          await this.autopay.handleEvent(event, body);
+          break;
+        }
         this.logger.debug(`Unhandled razorpay event ${event}`);
     }
   }

@@ -154,6 +154,7 @@ export class PaymentsService {
     razorpayOrderId: string,
     razorpayPaymentId: string,
     paidAmount?: number,
+    opts?: { accessUntil?: Date },
   ): Promise<Payment | null> {
     return this.paymentModel.sequelize!.transaction(
       async (transaction: Transaction) => {
@@ -188,7 +189,12 @@ export class PaymentsService {
         // Renewing the same plan stacks the new period onto the remaining
         // time; anything else (first purchase, upgrade, lapsed) starts now.
         const periodStart = renewing ? current!.currentPeriodEnd! : now;
-        const periodEnd = new Date(periodStart.getTime() + days * DAY_MS);
+        let periodEnd = new Date(periodStart.getTime() + days * DAY_MS);
+        // An autopay renewal runs to the next charge date (plus grace), which
+        // can be a day or two past the fixed 30/365 days.
+        if (opts?.accessUntil && opts.accessUntil.getTime() > periodEnd.getTime()) {
+          periodEnd = opts.accessUntil;
+        }
 
         if (renewing) {
           await this.subscriptionsService.extendCurrentPeriod(

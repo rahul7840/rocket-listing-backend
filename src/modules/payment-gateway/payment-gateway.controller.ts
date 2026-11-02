@@ -20,6 +20,8 @@ import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../users/models/user.model';
+import { AutopayService } from './autopay.service';
+import { CreateAutopayDto, VerifyAutopayDto } from './dto/autopay.dto';
 import { CreateOrderDto, VerifyPaymentDto } from './dto/payment.dto';
 import { PaymentsService } from './payments.service';
 import { RazorpayWebhookService } from './razorpay-webhook.service';
@@ -28,6 +30,7 @@ import { RazorpayWebhookService } from './razorpay-webhook.service';
 @Controller('payment-gateway')
 export class PaymentGatewayController {
   constructor(
+    private readonly autopay: AutopayService,
     private readonly razorpayWebhook: RazorpayWebhookService,
     private readonly payments: PaymentsService,
   ) {}
@@ -63,6 +66,44 @@ export class PaymentGatewayController {
   @ApiOperation({ summary: "The signed-in user's payment history" })
   myPayments(@CurrentUser() user: User) {
     return this.payments.listForUser(user.userId);
+  }
+
+  @Post('autopay')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Optional autopay after buying a plan: create the Razorpay subscription',
+  })
+  startAutopay(@CurrentUser() user: User, @Body() dto: CreateAutopayDto) {
+    return this.autopay.start(user.userId, dto);
+  }
+
+  @Post('autopay/verify')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Confirm the autopay approval from Checkout' })
+  verifyAutopay(@CurrentUser() user: User, @Body() dto: VerifyAutopayDto) {
+    return this.autopay.verify(user.userId, dto);
+  }
+
+  @Get('autopay/me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "The signed-in user's autopay, or null" })
+  myAutopay(@CurrentUser() user: User) {
+    return this.autopay.mine(user.userId);
+  }
+
+  @Post('autopay/cancel')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Turn autopay off; paid access stays until it ends' })
+  cancelAutopay(@CurrentUser() user: User) {
+    return this.autopay.cancel(user.userId);
   }
 
   /**

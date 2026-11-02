@@ -15,6 +15,8 @@ import { AdminPlansController } from './plans/admin-plans.controller';
 import { AdminTemplatesController } from './templates/admin-templates.controller';
 import { AdminDashboardController } from './dashboard/admin-dashboard.controller';
 import { AdminPaymentsController } from './payments/admin-payments.controller';
+import { AdminAutopayController } from './autopay/admin-autopay.controller';
+import { AutopaySubscription } from '../payment-gateway/models/autopay-subscription.model';
 import { Payment } from '../payment-gateway/models/payment.model';
 import { PaymentWebhookEvent } from '../payment-gateway/models/payment-webhook-event.model';
 
@@ -39,6 +41,7 @@ import { PaymentWebhookEvent } from '../payment-gateway/models/payment-webhook-e
       User,
       Payment,
       PaymentWebhookEvent,
+      AutopaySubscription,
     ]),
     AdminAuthModule,
     UsersModule,
@@ -52,6 +55,7 @@ import { PaymentWebhookEvent } from '../payment-gateway/models/payment-webhook-e
     AdminTemplatesController,
     AdminDashboardController,
     AdminPaymentsController,
+    AdminAutopayController,
   ],
 })
 export class AdminModule {}

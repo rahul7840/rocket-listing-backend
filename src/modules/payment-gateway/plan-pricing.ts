@@ -24,3 +24,25 @@ export const PLAN_PRICING: Record<
 };
 
 export const CURRENCY = 'INR';
+
+/**
+ * How an autopay subscription bills for each interval. Razorpay plans bill
+ * per calendar month or year, so a renewal's access runs to the NEXT charge
+ * date plus a short grace (AUTOPAY_GRACE_DAYS) instead of a fixed 30/365
+ * days, which would drift against the real charge dates.
+ * totalCount is how many cycles are authorised; after that the user must
+ * choose autopay again.
+ */
+export const AUTOPAY_CYCLE: Record<
+  BillingInterval,
+  { period: 'monthly' | 'yearly'; interval: number; totalCount: number }
+> = {
+  [BillingInterval.MONTHLY]: { period: 'monthly', interval: 1, totalCount: 12 },
+  [BillingInterval.YEARLY]: { period: 'yearly', interval: 1, totalCount: 5 },
+};
+
+/** Extra days of access after a renewal, so a charge retried late does not cut the user off. */
+export const AUTOPAY_GRACE_DAYS = 2;
+
+/** Razorpay needs start_at in the future; never ask for less than this. */
+export const AUTOPAY_MIN_LEAD_MS = 5 * 60 * 1000;
