@@ -18,10 +18,11 @@ export class User extends Model {
   @Column({ type: DataType.STRING, unique: true, allowNull: false })
   email: string;
 
-  @Column({ type: DataType.STRING, allowNull: true })
+  @Column({ type: DataType.TEXT, allowNull: true })
   displayName: string | null;
 
-  @Column({ type: DataType.STRING, allowNull: true })
+  /** TEXT, not varchar(255): Google picture URLs can be longer than 255 characters. */
+  @Column({ type: DataType.TEXT, allowNull: true })
   photoUrl: string | null;
 
   /** Set from the Razorpay webhook when the user pays; null until then. */
