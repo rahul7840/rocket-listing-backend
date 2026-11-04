@@ -30,7 +30,7 @@ const FEATURES = [
     code: 'PRO',
     featureKey: 'template.create',
     valueType: 'limit',
-    limitValue: 25,
+    limitValue: 40,
     isUnlimited: false,
   },
   {
