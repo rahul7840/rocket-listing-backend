@@ -14,6 +14,7 @@ function makeRow(over: Record<string, unknown> = {}) {
     razorpaySubscriptionId: 'sub_1',
     razorpayPlanId: 'plan_1',
     status: AutopayStatus.CREATED,
+    createdAt: new Date(),
     startAt: new Date(Date.now() + 10 * DAY),
     paidCount: 0,
     cancelRequestedAt: null,
@@ -73,13 +74,31 @@ describe('AutopayService.start', () => {
     (global as any).fetch = fetchMock;
   });
 
-  it('refuses when the user has not bought the plan', async () => {
-    const { service } = build({
+  it('charges the first cycle at once for a user with no paid time (one step)', async () => {
+    const { service, planModel, autopayModel } = build({
       current: { plan: { code: 'FREE' }, currentPeriodEnd: null },
     });
-    await expect(
-      service.start('u1', { planCode: 'PRO', interval: 'monthly' as any }),
-    ).rejects.toThrow('Buy the plan first');
+    planModel.findOne.mockResolvedValue({
+      razorpayPlanId: 'plan_1',
+      amount: 9900,
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'sub_now' }),
+    });
+    autopayModel.create.mockImplementation(async (v: any) =>
+      makeRow({ ...v, createdAt: new Date() }),
+    );
+
+    const out = await service.start('u1', {
+      planCode: 'PRO',
+      interval: 'monthly' as any,
+    });
+
+    const subBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(subBody.start_at).toBeUndefined();
+    expect(out.subscriptionId).toBe('sub_now');
+    expect(out.chargedNow).toBe(true);
   });
 
   it('starts the subscription when the paid period ends', async () => {
@@ -112,9 +131,10 @@ describe('AutopayService.start', () => {
     expect(subBody.start_at).toBe(Math.ceil(end.getTime() / 1000));
     expect(autopayModel.create).toHaveBeenCalledTimes(1);
     expect(out.subscriptionId).toBe('sub_new');
+    expect(out.chargedNow).toBe(false);
   });
 
-  it('never asks Razorpay for a start in the past', async () => {
+  it('charges now (no start_at) when the paid period is about to end', async () => {
     const { service, fetchBody } = (() => {
       const b = build({
         current: {
@@ -132,7 +152,7 @@ describe('AutopayService.start', () => {
       };
     })();
     await service.start('u1', { planCode: 'PRO', interval: 'monthly' as any });
-    expect(fetchBody().start_at * 1000).toBeGreaterThan(Date.now());
+    expect(fetchBody().start_at).toBeUndefined();
   });
 
   it('reuses a created subscription instead of making a second', async () => {
@@ -167,6 +187,11 @@ describe('AutopayService.start', () => {
 });
 
 describe('AutopayService.verify', () => {
+  const fetchMock = jest.fn();
+  beforeEach(() => {
+    fetchMock.mockReset();
+    (global as any).fetch = fetchMock;
+  });
   const sign = (payId: string, subId: string) =>
     createHmac('sha256', SECRET).update(`${payId}|${subId}`).digest('hex');
 
@@ -179,6 +204,55 @@ describe('AutopayService.verify', () => {
       razorpay_signature: sign('pay_1', 'sub_1'),
     });
     expect(row.status).toBe(AutopayStatus.AUTHENTICATED);
+    expect(payments.fulfill).not.toHaveBeenCalled();
+  });
+
+  it('grants the plan at once when the first cycle was charged now', async () => {
+    const row = makeRow({ startAt: new Date() });
+    const { service, payments } = build({ row });
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'pay_1',
+          status: 'captured',
+          amount: 9900,
+          order_id: 'order_1',
+          subscription_id: 'sub_1',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ paid_count: 1, charge_at: 1800000000 }),
+      });
+    await service.verify('u1', {
+      razorpay_payment_id: 'pay_1',
+      razorpay_subscription_id: 'sub_1',
+      razorpay_signature: sign('pay_1', 'sub_1'),
+    });
+    expect(payments.fulfill).toHaveBeenCalledWith('order_1', 'pay_1', 9900, {
+      accessUntil: new Date(1800000000 * 1000 + AUTOPAY_GRACE_DAYS * DAY),
+    });
+    expect(row.status).toBe(AutopayStatus.ACTIVE);
+  });
+
+  it('does not grant when the first payment is not captured', async () => {
+    const row = makeRow({ startAt: new Date() });
+    const { service, payments } = build({ row });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: 'pay_1',
+        status: 'failed',
+        amount: 9900,
+        subscription_id: 'sub_1',
+      }),
+    });
+    await service.verify('u1', {
+      razorpay_payment_id: 'pay_1',
+      razorpay_subscription_id: 'sub_1',
+      razorpay_signature: sign('pay_1', 'sub_1'),
+    });
     expect(payments.fulfill).not.toHaveBeenCalled();
   });
 

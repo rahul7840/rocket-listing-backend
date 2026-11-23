@@ -67,11 +67,12 @@ const EVENT_STATUS: Record<string, AutopayStatus> = {
 };
 
 /**
- * Optional autopay after a one-time purchase. The user first pays for the
- * plan through the normal order flow (PaymentsService). Autopay then creates
- * a Razorpay subscription that STARTS when that paid period ends, so nothing
- * is charged twice. Setting it up costs a small authorisation payment that
- * Razorpay refunds itself, and grants no access. Each later renewal arrives
+ * Subscribe-and-pay in one step. A user with no paid time left approves the
+ * mandate and pays the first cycle in the same Razorpay Checkout (the
+ * subscription has no start_at, so Razorpay charges at once). A user who
+ * still has paid time keeps it: the subscription STARTS when that period
+ * ends (small refunded authorisation payment, no access granted). Each later
+ * renewal arrives
  * as a `subscription.charged` webhook and is recorded and fulfilled exactly
  * like a normal purchase.
  */
@@ -95,9 +96,9 @@ export class AutopayService {
   }
 
   private async call<T>(
-    method: 'POST',
+    method: 'GET' | 'POST',
     path: string,
-    body: object,
+    body?: object,
   ): Promise<T> {
     const { keyId, keySecret } = this.razorpay;
     if (!keyId || !keySecret) {
@@ -113,7 +114,7 @@ export class AutopayService {
         'Content-Type': 'application/json',
         Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`,
       },
-      body: JSON.stringify(body),
+      ...(body ? { body: JSON.stringify(body) } : {}),
     });
     if (!res.ok) {
       this.logger.error(
@@ -175,14 +176,18 @@ export class AutopayService {
       );
     }
 
+    // A user who still has paid time keeps it: autopay then starts when that
+    // period ends. Everyone else (new, free or lapsed) pays the first cycle
+    // right now, in the same Razorpay Checkout that sets up the mandate.
     const current =
       await this.subscriptionsService.getCurrentSubscription(userId);
     const periodEnd = current?.currentPeriodEnd;
-    if (current?.plan?.code !== dto.planCode || !periodEnd) {
-      throw new BadRequestException('Buy the plan first, then turn on autopay');
-    }
-
     const now = Date.now();
+    const hasPaidTimeLeft =
+      current?.plan?.code === dto.planCode &&
+      !!periodEnd &&
+      periodEnd.getTime() > now + AUTOPAY_MIN_LEAD_MS;
+
     const live = await this.autopayModel.findOne({
       where: { userId, status: { [Op.in]: LIVE_AUTOPAY_STATUSES } },
       order: [['createdAt', 'DESC']],
@@ -190,19 +195,34 @@ export class AutopayService {
     if (live) {
       const stillOpen =
         live.status === AutopayStatus.CREATED &&
-        live.startAt.getTime() > now + AUTOPAY_MIN_LEAD_MS;
+        live.planCode === dto.planCode &&
+        live.interval === dto.interval &&
+        (this.isImmediate(live)
+          ? !hasPaidTimeLeft
+          : live.startAt.getTime() > now + AUTOPAY_MIN_LEAD_MS);
       if (stillOpen) return this.checkoutPayload(live);
       if (live.status !== AutopayStatus.CREATED) {
         throw new ConflictException('Autopay is already set up');
       }
-      // An abandoned, never-authorised subscription whose start date has passed.
+      // An abandoned, never-authorised subscription that can't be reused.
+      await this.call(
+        'POST',
+        `/subscriptions/${live.razorpaySubscriptionId}/cancel`,
+        { cancel_at_cycle_end: false },
+      ).catch((err: unknown) =>
+        this.logger.warn(`Could not cancel stale autopay: ${String(err)}`),
+      );
       await live.update({
         status: AutopayStatus.CANCELLED,
         cancelledAt: new Date(),
       });
     }
 
-    const startAtMs = Math.max(periodEnd.getTime(), now + AUTOPAY_MIN_LEAD_MS);
+    // Immediate: no start_at, so Razorpay charges the first cycle as soon as
+    // the user approves. Delayed: start when the paid period ends.
+    const startAtMs = hasPaidTimeLeft
+      ? Math.max(periodEnd!.getTime(), now + AUTOPAY_MIN_LEAD_MS)
+      : now;
     const plan = await this.getOrCreatePlan(
       dto.planCode,
       dto.interval,
@@ -212,7 +232,7 @@ export class AutopayService {
     const sub = await this.call<{ id: string }>('POST', '/subscriptions', {
       plan_id: plan.razorpayPlanId,
       total_count: cycle.totalCount,
-      start_at: Math.ceil(startAtMs / 1000),
+      ...(hasPaidTimeLeft ? { start_at: Math.ceil(startAtMs / 1000) } : {}),
       customer_notify: true,
       notes: { userId, planCode: dto.planCode, interval: dto.interval },
     });
@@ -230,6 +250,13 @@ export class AutopayService {
     return this.checkoutPayload(row);
   }
 
+  /** True when the first cycle is charged at approval (no earlier paid time). */
+  private isImmediate(row: AutopaySubscription): boolean {
+    return (
+      row.startAt.getTime() - row.createdAt.getTime() < AUTOPAY_MIN_LEAD_MS
+    );
+  }
+
   private checkoutPayload(row: AutopaySubscription) {
     return {
       keyId: this.razorpay.keyId,
@@ -237,6 +264,7 @@ export class AutopayService {
       planCode: row.planCode,
       interval: row.interval,
       firstRenewalAt: row.startAt,
+      chargedNow: this.isImmediate(row),
     };
   }
 
@@ -267,7 +295,51 @@ export class AutopayService {
     if (row.status === AutopayStatus.CREATED) {
       await row.update({ status: AutopayStatus.AUTHENTICATED });
     }
+
+    // One-step purchase: this payment IS the first cycle, so grant the plan
+    // now instead of waiting for the webhook. Idempotent with the webhook.
+    if (this.isImmediate(row)) await this.fulfillFirstCharge(row, dto);
     return this.describe(row);
+  }
+
+  /**
+   * Looks the payment up at Razorpay (never trusting the browser for the
+   * amount or status) and grants the first cycle if it was really captured.
+   */
+  private async fulfillFirstCharge(
+    row: AutopaySubscription,
+    dto: VerifyAutopayDto,
+  ) {
+    const pay = await this.call<{
+      id: string;
+      status: string;
+      amount: number;
+      order_id?: string | null;
+      subscription_id?: string | null;
+    }>('GET', `/payments/${dto.razorpay_payment_id}`);
+    if (
+      pay.subscription_id !== row.razorpaySubscriptionId ||
+      pay.status !== 'captured'
+    ) {
+      // Not charged (yet): the webhook will finish the job if it is.
+      this.logger.warn(
+        `First autopay payment ${pay.id} is ${pay.status}; waiting for webhook`,
+      );
+      return;
+    }
+    const sub = await this.call<{
+      paid_count?: number;
+      charge_at?: number | null;
+    }>('GET', `/subscriptions/${row.razorpaySubscriptionId}`);
+    await this.recordCharge(row, pay, sub.charge_at);
+    await row.update({
+      status: AutopayStatus.ACTIVE,
+      lastChargedAt: new Date(),
+      paidCount: Math.max(row.paidCount, sub.paid_count ?? 1),
+      ...(typeof sub.charge_at === 'number'
+        ? { startAt: new Date(sub.charge_at * 1000) }
+        : {}),
+    });
   }
 
   /** Stops autopay. The user keeps the access they already paid for. */
@@ -355,14 +427,14 @@ export class AutopayService {
     }
 
     if (event === 'subscription.charged') {
-      await this.recordCharge(row, body);
+      await this.recordChargeFromWebhook(row, body);
       patch.lastChargedAt = new Date();
     }
     if (Object.keys(patch).length) await row.update(patch);
   }
 
   /** A renewal was charged: ledger row + access, exactly once per Razorpay payment. */
-  private async recordCharge(
+  private async recordChargeFromWebhook(
     row: AutopaySubscription,
     body: SubscriptionWebhookBody,
   ) {
@@ -373,6 +445,18 @@ export class AutopayService {
         `subscription.charged for ${row.razorpaySubscriptionId} has no payment`,
       );
     }
+    await this.recordCharge(
+      row,
+      { id: pay.id, amount: pay.amount, order_id: pay.order_id },
+      sub?.charge_at,
+    );
+  }
+
+  private async recordCharge(
+    row: AutopaySubscription,
+    pay: { id: string; amount: number; order_id?: string | null },
+    nextChargeAt?: number | null,
+  ) {
     // The amount this subscription's plan was created with (the price may have changed since).
     const plan = await this.planModel.findOne({
       where: { razorpayPlanId: row.razorpayPlanId },
@@ -396,8 +480,8 @@ export class AutopayService {
     });
 
     const accessUntil =
-      typeof sub?.charge_at === 'number'
-        ? new Date(sub.charge_at * 1000 + AUTOPAY_GRACE_DAYS * DAY_MS)
+      typeof nextChargeAt === 'number'
+        ? new Date(nextChargeAt * 1000 + AUTOPAY_GRACE_DAYS * DAY_MS)
         : undefined;
     await this.payments.fulfill(orderId, pay.id, pay.amount, { accessUntil });
   }
