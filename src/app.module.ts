@@ -23,6 +23,7 @@ import { SellerAnalysisModule } from './modules/seller-analysis/seller-analysis.
 import { ListingsModule } from './modules/listings/listings.module';
 import { PaymentGatewayModule } from './modules/payment-gateway/payment-gateway.module';
 import { LearningModule } from './modules/learning/learning.module';
+import { SupplierDetailsModule } from './modules/supplier-details/supplier-details.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { LearningModule } from './modules/learning/learning.module';
     ListingsModule,
     PaymentGatewayModule,
     LearningModule,
+    SupplierDetailsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
