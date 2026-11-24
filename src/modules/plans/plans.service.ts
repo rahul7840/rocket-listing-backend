@@ -99,7 +99,8 @@ export class PlansService {
       boolValue: options.boolValue ?? null,
       limitValue: options.limitValue ?? null,
       isUnlimited: options.isUnlimited ?? false,
-      period: options.period ?? null,
+      // Only an explicit value changes the reset window; leaving it out keeps what is stored.
+      period: options.period === undefined ? feature.period : options.period,
       metadata: options.metadata ?? feature.metadata,
     });
   }
