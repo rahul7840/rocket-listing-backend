@@ -72,4 +72,14 @@ describe('TemplatesController subscription wiring', () => {
       ),
     ).toBeUndefined();
   });
+
+  it('leaves import, count and the single read off the plan limit (import is capped in the service instead)', () => {
+    for (const handler of [
+      TemplatesController.prototype.importMany,
+      TemplatesController.prototype.count,
+      TemplatesController.prototype.findOne,
+    ]) {
+      expect(Reflect.getMetadata(REQUIRES_LIMIT_KEY, handler)).toBeUndefined();
+    }
+  });
 });

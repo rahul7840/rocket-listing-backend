@@ -15,6 +15,12 @@ export enum TemplateSource {
   MEESHO = 'meesho',
 }
 
+/** What the template holds: a step recording (actions) or a Smart Template (Meesho form fields). */
+export enum TemplateKind {
+  RECORDING = 'recording',
+  SMART = 'smart',
+}
+
 @Table({ tableName: 'templates', timestamps: true })
 export class Template extends Model {
   @Column({
@@ -52,6 +58,13 @@ export class Template extends Model {
     defaultValue: TemplateSource.MANUAL,
   })
   source: TemplateSource;
+
+  @Column({
+    type: DataType.STRING(16),
+    allowNull: false,
+    defaultValue: TemplateKind.RECORDING,
+  })
+  kind: TemplateKind;
 
   @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
   playCount: number;

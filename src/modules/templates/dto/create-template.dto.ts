@@ -6,7 +6,7 @@ import {
   IsString,
   IsUrl,
 } from 'class-validator';
-import { TemplateSource } from '../models/template.model';
+import { TemplateKind, TemplateSource } from '../models/template.model';
 
 export class CreateTemplateDto {
   @IsString()
@@ -37,4 +37,9 @@ export class CreateTemplateDto {
   @IsOptional()
   @IsEnum(TemplateSource)
   source?: TemplateSource;
+
+  /** Absent = a step recording, which is what every client sent before Smart Templates were stored here. */
+  @IsOptional()
+  @IsEnum(TemplateKind)
+  kind?: TemplateKind;
 }

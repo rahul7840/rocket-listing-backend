@@ -4,7 +4,18 @@ import { AutopayStatus } from './models/autopay-subscription.model';
 import { AUTOPAY_GRACE_DAYS } from './plan-pricing';
 
 const DAY = 24 * 60 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
 const SECRET = 'test_secret';
+
+/** A Razorpay answer for the fetch mock. */
+const ok = (body: unknown) => ({ ok: true, json: async () => body });
+/** A Razorpay refusal, shaped like its real error body. */
+const refused = (status: number, description: string) => ({
+  ok: false,
+  status,
+  text: async () =>
+    JSON.stringify({ error: { code: 'BAD_REQUEST_ERROR', description } }),
+});
 
 function makeRow(over: Record<string, unknown> = {}) {
   const row: any = {
@@ -180,9 +191,36 @@ describe('AutopayService.start', () => {
       },
       live: makeRow({ status: AutopayStatus.ACTIVE }),
     });
+    fetchMock.mockResolvedValueOnce(
+      ok({
+        status: 'active',
+        paid_count: 0,
+        charge_at: Math.floor((Date.now() + 20 * DAY) / 1000),
+      }),
+    );
     await expect(
       service.start('u1', { planCode: 'PRO', interval: 'monthly' as any }),
     ).rejects.toThrow('already set up');
+  });
+
+  it('starts a new autopay when the old one was cancelled from the UPI app', async () => {
+    const live = makeRow({ status: AutopayStatus.AUTHENTICATED });
+    const { service } = build({
+      current: { plan: { code: 'FREE' }, currentPeriodEnd: null },
+      live,
+    });
+    fetchMock
+      .mockResolvedValueOnce(ok({ status: 'cancelled' }))
+      .mockResolvedValueOnce(ok({ id: 'sub_new' }));
+
+    const out = await service.start('u1', {
+      planCode: 'PRO',
+      interval: 'monthly' as any,
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toContain('/subscriptions/sub_1');
+    expect(live.status).toBe(AutopayStatus.CANCELLED);
+    expect(out.subscriptionId).toBe('sub_new');
   });
 });
 
@@ -352,17 +390,19 @@ describe('AutopayService.handleEvent', () => {
 describe('AutopayService.cancel', () => {
   const fetchMock = jest.fn();
   beforeEach(() => {
-    fetchMock
-      .mockReset()
-      .mockResolvedValue({ ok: true, json: async () => ({}) });
+    fetchMock.mockReset();
     (global as any).fetch = fetchMock;
   });
 
   it('cancels at the end of the cycle when active, so paid access is kept', async () => {
     const live = makeRow({ status: AutopayStatus.ACTIVE });
     const { service } = build({ live });
+    fetchMock
+      .mockResolvedValueOnce(ok({ status: 'active', remaining_count: 11 }))
+      .mockResolvedValueOnce(ok({}));
     await service.cancel('u1');
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+    expect(fetchMock.mock.calls[0][1].method).toBe('GET');
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
       cancel_at_cycle_end: true,
     });
     expect(live.cancelRequestedAt).toBeInstanceOf(Date);
@@ -372,10 +412,251 @@ describe('AutopayService.cancel', () => {
   it('cancels at once when no cycle is running yet', async () => {
     const live = makeRow({ status: AutopayStatus.AUTHENTICATED });
     const { service } = build({ live });
+    fetchMock
+      .mockResolvedValueOnce(ok({ status: 'authenticated' }))
+      .mockResolvedValueOnce(ok({}));
     await service.cancel('u1');
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
       cancel_at_cycle_end: false,
     });
     expect(live.status).toBe(AutopayStatus.CANCELLED);
+  });
+
+  it('closes an expired autopay instead of failing (never approved before its start date)', async () => {
+    const live = makeRow({
+      status: AutopayStatus.CREATED,
+      createdAt: new Date(Date.now() - 40 * DAY),
+      startAt: new Date(Date.now() - 13 * DAY),
+    });
+    const { service } = build({ live });
+    fetchMock.mockResolvedValueOnce(ok({ status: 'expired' }));
+
+    const out = await service.cancel('u1');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(live.status).toBe(AutopayStatus.EXPIRED);
+    expect(out.status).toBe(AutopayStatus.EXPIRED);
+  });
+
+  it('closes an autopay Razorpay does not know (e.g. made with the other key)', async () => {
+    const live = makeRow({ status: AutopayStatus.AUTHENTICATED });
+    const { service } = build({ live });
+    fetchMock.mockResolvedValueOnce(
+      refused(400, 'The id provided does not exist'),
+    );
+
+    await service.cancel('u1');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(live.status).toBe(AutopayStatus.CANCELLED);
+    expect(live.cancelledAt).toBeInstanceOf(Date);
+  });
+
+  it('closes the row when it was cancelled from the UPI app in the meantime', async () => {
+    const live = makeRow({ status: AutopayStatus.AUTHENTICATED });
+    const { service } = build({ live });
+    fetchMock
+      .mockResolvedValueOnce(ok({ status: 'authenticated' }))
+      .mockResolvedValueOnce(
+        refused(400, 'Subscription is not cancellable in cancelled status.'),
+      )
+      .mockResolvedValueOnce(ok({ status: 'cancelled' }));
+
+    await service.cancel('u1');
+
+    expect(live.status).toBe(AutopayStatus.CANCELLED);
+  });
+
+  it('only marks it stopping in the last paid cycle (nothing more will be charged)', async () => {
+    const live = makeRow({ status: AutopayStatus.ACTIVE });
+    const { service } = build({ live });
+    fetchMock.mockResolvedValueOnce(
+      ok({ status: 'active', remaining_count: 0 }),
+    );
+
+    await service.cancel('u1');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(live.cancelRequestedAt).toBeInstanceOf(Date);
+  });
+
+  it('reports a network failure as unreachable and changes nothing', async () => {
+    const live = makeRow({ status: AutopayStatus.ACTIVE });
+    const { service } = build({ live });
+    fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'));
+
+    await expect(service.cancel('u1')).rejects.toThrow(
+      'Could not reach the payment provider',
+    );
+    expect(live.update).not.toHaveBeenCalled();
+  });
+
+  it('keeps a real refusal as an error with a clear message', async () => {
+    const live = makeRow({ status: AutopayStatus.ACTIVE });
+    const { service } = build({ live });
+    fetchMock
+      .mockResolvedValueOnce(ok({ status: 'active', remaining_count: 5 }))
+      .mockResolvedValueOnce(
+        refused(
+          400,
+          'Request failed because another subscription operation is in progress.',
+        ),
+      )
+      .mockResolvedValueOnce(ok({ status: 'active', remaining_count: 5 }));
+
+    await expect(service.cancel('u1')).rejects.toThrow(
+      'The payment provider refused this request',
+    );
+    expect(live.cancelRequestedAt).toBeNull();
+  });
+});
+
+describe('AutopayService.mine', () => {
+  const fetchMock = jest.fn();
+  beforeEach(() => {
+    fetchMock.mockReset();
+    (global as any).fetch = fetchMock;
+  });
+
+  it('does not report a checkout the user has not approved as autopay', async () => {
+    const live = makeRow({ status: AutopayStatus.CREATED });
+    const { service } = build({ live });
+    expect(await service.mine('u1')).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('closes an unapproved autopay that expired at Razorpay', async () => {
+    const live = makeRow({
+      status: AutopayStatus.CREATED,
+      createdAt: new Date(Date.now() - 40 * DAY),
+      startAt: new Date(Date.now() - 13 * DAY),
+    });
+    const { service } = build({ live });
+    fetchMock.mockResolvedValueOnce(ok({ status: 'expired' }));
+
+    expect(await service.mine('u1')).toBeNull();
+    expect(live.status).toBe(AutopayStatus.EXPIRED);
+  });
+
+  it('closes a checkout abandoned more than an hour ago', async () => {
+    const live = makeRow({
+      status: AutopayStatus.CREATED,
+      createdAt: new Date(Date.now() - 2 * HOUR),
+      startAt: new Date(Date.now() - 2 * HOUR),
+    });
+    const { service } = build({ live });
+    fetchMock
+      .mockResolvedValueOnce(ok({ status: 'created' }))
+      .mockResolvedValueOnce(ok({}));
+
+    expect(await service.mine('u1')).toBeNull();
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      cancel_at_cycle_end: false,
+    });
+    expect(live.status).toBe(AutopayStatus.CANCELLED);
+  });
+
+  it('records a renewal the webhook missed and moves the next payment date', async () => {
+    const live = makeRow({
+      status: AutopayStatus.ACTIVE,
+      paidCount: 1,
+      createdAt: new Date(Date.now() - 45 * DAY),
+      startAt: new Date(Date.now() - 13 * DAY),
+    });
+    const { service, payments } = build({ live });
+    const next = Math.floor((Date.now() + 17 * DAY) / 1000);
+    const paid = (id: string, amount: number) => ({
+      status: 'paid',
+      payment_id: id,
+      order_id: `order_${id}`,
+      amount,
+      amount_paid: amount,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        ok({ status: 'active', paid_count: 2, charge_at: next }),
+      )
+      .mockResolvedValueOnce(
+        ok({
+          items: [
+            paid('pay_2', 9900),
+            paid('pay_1', 9900),
+            paid('pay_auth', 500),
+            { status: 'issued', payment_id: null, amount: 9900 },
+          ],
+        }),
+      );
+
+    const out = await service.mine('u1');
+
+    expect(fetchMock.mock.calls[1][0]).toContain(
+      '/invoices?subscription_id=sub_1',
+    );
+    // Both cycle charges go through fulfill(), which skips the one already recorded.
+    expect(payments.fulfill.mock.calls.map((c: any[]) => c[1])).toEqual([
+      'pay_2',
+      'pay_1',
+    ]);
+    expect(payments.fulfill.mock.calls[0][3].accessUntil.getTime()).toBe(
+      next * 1000 + AUTOPAY_GRACE_DAYS * DAY,
+    );
+    expect(live.paidCount).toBe(2);
+    expect(live.startAt.getTime()).toBe(next * 1000);
+    expect(out?.status).toBe(AutopayStatus.ACTIVE);
+  });
+
+  it('grants the plan when a one-step payment was taken but never verified', async () => {
+    const live = makeRow({
+      status: AutopayStatus.CREATED,
+      createdAt: new Date(Date.now() - 5 * 60 * 1000),
+      startAt: new Date(Date.now() - 5 * 60 * 1000),
+    });
+    const { service, payments } = build({ live });
+    const next = Math.floor((Date.now() + 30 * DAY) / 1000);
+    fetchMock
+      .mockResolvedValueOnce(
+        ok({ status: 'active', paid_count: 1, charge_at: next }),
+      )
+      .mockResolvedValueOnce(
+        ok({
+          items: [
+            {
+              status: 'paid',
+              payment_id: 'pay_1',
+              order_id: 'order_1',
+              amount: 9900,
+              amount_paid: 9900,
+            },
+          ],
+        }),
+      );
+
+    const out = await service.mine('u1');
+
+    expect(payments.fulfill).toHaveBeenCalledWith('order_1', 'pay_1', 9900, {
+      accessUntil: new Date(next * 1000 + AUTOPAY_GRACE_DAYS * DAY),
+    });
+    expect(out?.status).toBe(AutopayStatus.ACTIVE);
+  });
+
+  it('still answers from our own row when Razorpay is down', async () => {
+    const live = makeRow({
+      status: AutopayStatus.ACTIVE,
+      startAt: new Date(Date.now() - 2 * DAY),
+    });
+    const { service } = build({ live });
+    fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'));
+
+    const out = await service.mine('u1');
+
+    expect(out?.status).toBe(AutopayStatus.ACTIVE);
+  });
+
+  it('does not call Razorpay for an autopay that is up to date', async () => {
+    const live = makeRow({ status: AutopayStatus.ACTIVE });
+    const { service } = build({ live });
+    const out = await service.mine('u1');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(out?.status).toBe(AutopayStatus.ACTIVE);
   });
 });
